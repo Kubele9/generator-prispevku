@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Generátor příspěvků – Sokol Brumovice</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#0fb5ac" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+<link rel="apple-touch-icon" href="apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Brumovice" />
+<meta name="mobile-web-app-capable" content="yes" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;0,900;1,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel-2: #1f232c; --border: #2a2f3a;
+    --text: #e8ebf0; --muted: #9aa3b2; --accent: #e11d2a; --accent-2: #1d4ed8; --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 800; display:flex; align-items:center; gap:10px; }
+  header .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .layout { display: grid; grid-template-columns: 400px 1fr; min-height: calc(100vh - 64px); }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  .controls { padding: 20px; border-right: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - 64px); }
+  .preview { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+    background: radial-gradient(1200px 600px at 30% -10%, rgba(29,78,216,.10), transparent), radial-gradient(900px 500px at 90% 110%, rgba(225,29,42,.10), transparent); }
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; font-weight: 700; }
+  input[type="text"], input[type="password"], textarea, select { width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 8px; font-size: 14px; font-family: inherit; }
+  textarea { resize: vertical; min-height: 66px; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-2); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .row { display: flex; gap: 10px; } .row > * { flex: 1; }
+  .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-weight: 800; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab { flex: 1; padding: 11px; text-align: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); transition: .15s; }
+  .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .seg { display: flex; gap: 6px; }
+  .seg button { flex: 1; padding: 9px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit; }
+  .seg button.active { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+  .color-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .color-row label { flex: 1; font-size: 13px; color: var(--muted); }
+  input[type="color"] { width: 44px; height: 32px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; cursor: pointer; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 13px; background: var(--accent); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 800; cursor: pointer; font-family: inherit; transition: .15s; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.secondary { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+  .canvas-wrap { background: #000; border-radius: var(--radius); box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden; line-height: 0; }
+  #preview { max-width: 100%; max-height: 64vh; width: auto; height: auto; display: block; }
+  .format-toggle { display: flex; gap: 8px; }
+  .format-toggle button { padding: 8px 14px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; font-family: inherit; }
+  .format-toggle button.active { background: var(--text); color: #000; border-color: var(--text); }
+  .uploader { display: flex; align-items: center; gap: 12px; background: var(--panel-2); border: 1px dashed var(--border); padding: 12px; border-radius: 10px; }
+  .uploader img { width: 46px; height: 46px; object-fit: contain; border-radius: 6px; background: rgba(255,255,255,.06); }
+  .uploader .up-text { flex: 1; font-size: 12.5px; color: var(--muted); line-height: 1.35; }
+  .file-btn { padding: 8px 12px; background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .downloads { display: flex; gap: 10px; margin-top: 4px; width: 100%; max-width: 520px; }
+  .badge { font-size: 11px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); padding: 3px 9px; border-radius: 999px; font-weight: 700; }
+  details { margin-bottom: 12px; } summary { cursor: pointer; font-size: 13px; color: var(--muted); font-weight: 700; padding: 6px 0; }
+  .mini { font-size: 11px; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Generátor příspěvků <span class="badge">Sokol Brumovice</span></h1>
+    <div class="sub">Vyplň → náhled se aktualizuje → stáhni PNG pro FB a Instagram</div>
+  </div>
+  <div class="format-toggle" id="formatToggle">
+    <button type="button" data-fmt="square" class="active">Feed 1080×1080</button>
+    <button type="button" data-fmt="story">Story 1080×1920</button>
+    <button type="button" data-fmt="print">Tisk A4</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="controls">
+    <div class="field" style="margin-bottom:16px">
+      <label>Tým</label>
+      <div class="seg" id="teamSwitch">
+        <button type="button" data-team="muzi" class="active">Dospělí</button>
+        <button type="button" data-team="dorost">Dorost</button>
+      </div>
+    </div>
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tpl="result">Výsledek</div>
+      <div class="tab" data-tpl="invite">Pozvánka</div>
+      <div class="tab" data-tpl="announce">Oznámení</div>
+      <div class="tab" data-tpl="souperi">Soupeři</div>
+      <div class="tab" data-tpl="schedule">Rozpis</div>
+      <div class="tab" data-tpl="cover">Úvodní foto</div>
+    </div>
+
+    <!-- RESULT -->
+    <div class="tpl" data-tpl="result">
+      <div class="seg" style="margin-bottom:14px">
+        <button type="button" data-rside="home" class="active" id="r_home_btn">Brumky doma</button>
+        <button type="button" data-rside="away" id="r_away_btn">Brumky venku</button>
+      </div>
+      <div class="field row">
+        <div><label>Domácí tým</label><input type="text" id="r_home" value="Sokol Brumovice" /></div>
+        <div><label>Hostující tým</label><input type="text" id="r_away" value="Moravan Lednice" /></div>
+      </div>
+      <div class="field row">
+        <div><label>Skóre domácí</label><input type="text" id="r_hs" value="3" /></div>
+        <div><label>Skóre hosté</label><input type="text" id="r_as" value="1" /></div>
+      </div>
+      <div class="field row">
+        <div><label>Poločas</label><input type="text" id="r_half" value="1:0" placeholder="např. 1:0" /></div>
+        <div><label>Datum</label><input type="text" id="r_date" value="15. 8. 2026" /></div>
+      </div>
+      <div class="field"><label>Soutěž / kolo</label><input type="text" id="r_comp" value="8. liga • 1. kolo" /></div>
+      <div class="field"><label>Střelci Sokola (každý na řádek)</label><textarea id="r_scorers" placeholder="Novák 2&#10;Svoboda">Novák 2&#10;Svoboda</textarea></div>
+    </div>
+
+    <!-- INVITE -->
+    <div class="tpl" data-tpl="invite" style="display:none">
+      <div class="seg" style="margin-bottom:14px">
+        <button type="button" data-side="home" class="active" id="i_home_btn">Doma</button>
+        <button type="button" data-side="away" id="i_away_btn">Venku</button>
+      </div>
+      <div class="field"><label>Soupeř</label><input type="text" id="i_opp" value="Moravan Lednice" /></div>
+      <div class="field row">
+        <div><label>Datum</label><input type="text" id="i_date" value="15. 8. 2026" /></div>
+        <div><label>Čas</label><input type="text" id="i_time" value="16:30" /></div>
+      </div>
+      <div class="field"><label>Místo / stadion</label><input type="text" id="i_venue" value="Hřiště Brumovice" /></div>
+      <div class="field"><label>Soutěž / kolo</label><input type="text" id="i_comp" value="8. liga • 1. kolo" /></div>
+      <div class="field"><label>Nadpis</label><input type="text" id="i_title" value="Přijďte nás podpořit" /></div>
+    </div>
+
+    <!-- ANNOUNCE -->
+    <div class="tpl" data-tpl="announce" style="display:none">
+      <div class="field"><label>Malý nadpis (nepovinné)</label><input type="text" id="a_eyebrow" value="Sokol Brumovice" /></div>
+      <div class="field"><label>Hlavní nadpis</label><input type="text" id="a_title" value="Děkujeme za podporu!" /></div>
+      <div class="field"><label>Text</label><textarea id="a_text">Skvělá sezóna je za námi. Těšíme se na vás v té další.</textarea></div>
+    </div>
+
+    <!-- SOUPEŘI -->
+    <div class="tpl" data-tpl="souperi" style="display:none">
+      <div class="field"><label>Nadpis</label><input type="text" id="s_title" value="Naši soupeři" /></div>
+      <div class="field"><label>Sezóna</label><input type="text" id="s_season" value="2026/2027" /></div>
+      <div class="hint">Soupeři se automaticky vezmou z knihovny podle zvoleného týmu nahoře (Muži / Dorost). Loga jim doplníš v sekci „Soupeř &amp; jeho logo" (většina je už stažená z fotbal.cz).</div>
+    </div>
+
+    <!-- ROZPIS (rozpis zápasů) -->
+    <div class="tpl" data-tpl="schedule" style="display:none">
+      <div class="field"><label>Nadpis</label><input type="text" id="sc_title" value="Rozpis zápasů" /></div>
+      <div class="field">
+        <label>Časy zápasů</label>
+        <div class="seg" id="sc_time_switch">
+          <button type="button" data-t="1" class="active">S časy</button>
+          <button type="button" data-t="0">Bez časů</button>
+        </div>
+      </div>
+      <div class="hint">Rozpis se vezme automaticky z fotbal.cz podle zvoleného týmu nahoře (Muži / Dorost) – podzim 2026. Vaše zápasy jsou zvýrazněné jako <b>DOMA</b> / <b>VENKU</b>. Pro nástěnku je ideální formát <b>Tisk A4</b> nebo <b>Story</b>.</div>
+    </div>
+
+    <!-- ÚVODNÍ FOTO (FB cover) -->
+    <div class="tpl" data-tpl="cover" style="display:none">
+      <div class="field">
+        <label>Pozadí</label>
+        <div class="seg" id="cv_bg_switch">
+          <button type="button" data-bg="photo" class="active">Fotka</button>
+          <button type="button" data-bg="clean">Čistá šablona</button>
+        </div>
+      </div>
+      <div id="coverPhotoControls">
+        <div class="field">
+          <label>Fotka na pozadí (týmové foto)</label>
+          <div id="coverPresets" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px"></div>
+          <div class="uploader">
+            <img id="coverPhotoPreview" alt="" style="display:none" />
+            <div class="up-text" id="coverPhotoText">Vyber přednastavenou fotku výše, nebo nahraj vlastní.</div>
+            <label class="file-btn">Nahrát vlastní<input type="file" id="coverPhotoInput" accept="image/*" hidden /></label>
+          </div>
+        </div>
+        <div class="field">
+          <label>Svislé posunutí fotky</label>
+          <input type="range" id="cv_offset" min="0" max="100" value="50" style="width:100%" />
+          <div class="mini">Posuň fotku nahoru/dolů, ať jsou dobře vidět obličeje.</div>
+        </div>
+      </div>
+      <div class="field"><label>Hlavní nadpis</label><input type="text" id="cv_title" value="Sokol Brumovice" /></div>
+      <div class="field"><label>Podtitulek</label><input type="text" id="cv_subtitle" value="Fotbal • sezóna 2026/2027" /></div>
+      <div class="field">
+        <label>Umístění textu</label>
+        <div class="seg" id="cv_pos_switch">
+          <button type="button" data-pos="left" class="active">Vlevo</button>
+          <button type="button" data-pos="center">Uprostřed</button>
+        </div>
+      </div>
+      <div class="hint">Vyber <b>Fotku</b> (týmové foto) nebo <b>Čistou šablonu</b> (branded pozadí bez fotky). Fotka i nadpis se drží zvlášť pro <b>Muže</b> a <b>Dorost</b>. Rozměr je 1640×624 px (FB cover). Přepínač Feed/Story se tu nepoužije.</div>
+    </div>
+
+    <!-- OPPONENT LIBRARY (result + invite) -->
+    <div id="oppSection">
+      <div class="section-title">Soupeř &amp; jeho logo</div>
+      <div class="field">
+        <label>Vyber z knihovny soupeřů</label>
+        <select id="oppSelect"><option value="">— nový soupeř —</option></select>
+      </div>
+      <div class="field">
+        <label>Logo soupeře</label>
+        <div class="uploader">
+          <img id="oppLogoPreview" alt="" style="display:none" />
+          <div class="up-text" id="oppLogoText">Nahraj logo soupeře. Ulož si ho do knihovny a příště ho jen vybereš.</div>
+          <label class="file-btn">Vybrat<input type="file" id="oppLogoInput" accept="image/*" hidden /></label>
+        </div>
+        <button type="button" class="file-btn" id="oppSaveBtn" style="margin-top:8px; width:100%">💾 Uložit soupeře do knihovny</button>
+        <div class="mini" id="oppSaveHint">Uloží se pod jménem soupeře z pole výše (do tohoto prohlížeče).</div>
+      </div>
+    </div>
+
+    <!-- AI CAPTION -->
+    <div class="section-title">AI popisek příspěvku</div>
+    <div class="field">
+      <label>Tvoje poznámka (ve zkratce)</label>
+      <textarea id="ai_note" placeholder="např. vyhráli jsme 3:1, dva góly Novák, skvělá obrana, díky fanouškům"></textarea>
+    </div>
+    <div class="field">
+      <label>Tón</label>
+      <select id="ai_tone">
+        <option value="mix">Přátelský mix (info + emoce, pár emoji)</option>
+        <option value="fanouskovsky">Fanouškovský, energický (s emoji)</option>
+        <option value="seriozni">Střízlivý, informativní (bez emoji)</option>
+      </select>
+    </div>
+    <button type="button" class="btn" id="ai_generate">✨ Vytvořit popisek</button>
+    <div class="field" style="margin-top:12px">
+      <label>Výsledný popisek</label>
+      <textarea id="ai_output" style="min-height:110px" placeholder="Sem se vloží upravený text…"></textarea>
+      <button type="button" class="file-btn" id="ai_copy" style="margin-top:8px; width:100%">Kopírovat popisek</button>
+    </div>
+    <details>
+      <summary>Nastavení AI (poskytovatel a klíč)</summary>
+      <div style="margin-top:10px">
+        <div class="field">
+          <label>Poskytovatel AI</label>
+          <select id="ai_provider">
+            <option value="gemini">Google Gemini (zdarma)</option>
+            <option value="openai">OpenAI (placené)</option>
+          </select>
+        </div>
+        <div id="ai_gemini_box">
+          <div class="field"><label>Google Gemini API klíč</label><input type="password" id="ai_gkey" placeholder="AIza..." autocomplete="off" /></div>
+          <div class="field"><label>Model</label><input type="text" id="ai_gmodel" value="gemini-2.5-flash" /></div>
+          <div class="hint">Klíč získáš <b>zdarma</b> na <b>aistudio.google.com/apikey</b> – stačí Google účet, žádná platební karta. Uloží se jen v tomto prohlížeči.</div>
+        </div>
+        <div id="ai_openai_box" style="display:none">
+          <div class="field"><label>OpenAI API klíč</label><input type="password" id="ai_key" placeholder="sk-..." autocomplete="off" /></div>
+          <div class="field"><label>Model</label><input type="text" id="ai_model" value="gpt-4o-mini" /></div>
+          <div class="hint">Klíč na platform.openai.com → „API keys". Vyžaduje dobitý kredit (billing). Uloží se jen v tomto prohlížeči.</div>
+        </div>
+      </div>
+    </details>
+
+    <!-- BRANDING -->
+    <div class="section-title">Vzhled klubu</div>
+    <div class="field">
+      <label>Logo klubu (Brumovice)</label>
+      <div class="uploader">
+        <img id="logoPreview" alt="" style="display:none" />
+        <div class="up-text" id="logoText">Nahraj klubové logo (ideálně PNG s průhledností). Uloží se v prohlížeči.</div>
+        <label class="file-btn">Vybrat<input type="file" id="logoInput" accept="image/*" hidden /></label>
+      </div>
+      <button type="button" class="file-btn" id="logoRemove" style="margin-top:8px; display:none">Odebrat logo</button>
+    </div>
+
+    <details>
+      <summary>Barvy klubu</summary>
+      <div style="margin-top:10px">
+        <div class="color-row"><label>Hlavní barva</label><input type="color" id="c_primary" value="#0fb5ac" /></div>
+        <div class="color-row"><label>Pozadí</label><input type="color" id="c_secondary" value="#eef3f4" /></div>
+        <div class="color-row"><label>Barva textu</label><input type="color" id="c_text" value="#0b1f2a" /></div>
+        <div class="hint">Barvy se přepnou podle týmu (Muži = tyrkysová, Dorost = černobílá). Tady si je můžeš ještě doladit.</div>
+      </div>
+    </details>
+
+    <div class="field" style="margin-top:14px"><label>Web / hashtag v patičce</label><input type="text" id="footer" value="#sokolbrumovice" /></div>
+  </div>
+
+  <div class="preview">
+    <div class="canvas-wrap"><canvas id="preview" width="1080" height="1080"></canvas></div>
+    <div class="downloads" style="flex-direction:column; gap:10px">
+      <button type="button" class="btn" id="shareBtn">📲 Sdílet na FB / Instagram</button>
+      <div style="display:flex; gap:10px; width:100%">
+        <button type="button" class="btn secondary" id="downloadBtn">⬇ Stáhnout PNG</button>
+        <button type="button" class="btn secondary" id="copyBtn" style="max-width:170px">Kopírovat</button>
+      </div>
+    </div>
+    <div class="hint" id="shareHint" style="max-width:520px; text-align:center">
+      <b>Na mobilu:</b> „Sdílet" otevře nabídku appek → vyber <b>Facebook</b> nebo <b>Instagram</b> a tam zvolíš <b>Feed</b>, nebo <b>Stories</b>.
+      Pro stories nejdřív přepni formát nahoře na <b>Story 1080×1920</b>. Popisek z AI se přiloží automaticky.
+      <br><b>Na počítači:</b> použij „Stáhnout" nebo „Kopírovat" a nahraj ručně.
+    </div>
+  </div>
+</div>
+
+<script src="logo-data.js"></script>
+<script src="opponents-data.js"></script>
+<script src="cover-data.js"></script>
+<script src="schedule-data.js"></script>
+<script src="render.js"></script>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const val = id => { const el = $(id); return el ? el.value : ""; };
+const setVal = (id, v) => { const el = $(id); if (el) el.value = v; };
+
+// Soupeři načtení z fotbal.cz (krátké názvy vhodné na příspěvky).
+// Dospělí: 2026 A1A – 8. liga (okres Břeclav). Dorost: 2026 C1A – 6. liga starší dorost.
+const DEFAULT_LIBS = {
+  muzi: [
+    "Moravan Lednice", "Slavoj Velké Pavlovice", "FK Valtice",
+    "Sokol Charvátská Nová Ves", "Sokol Šitbořice", "Sokol Křepice",
+    "FK Moravská Nová Ves", "Sokol Velké Němčice", "Velké Bílovice",
+    "SK Zaječí", "Sokol Hlohovec", "Sokol Pohořelice", "Sokol Kobylí",
+  ],
+  dorost: [
+    "Vlast Ježov", "FC Bučovice", "SK Rakvice", "Sokol Charvátská Nová Ves",
+    "Sokol Popice", "SK Kostelec", "SK Čejč", "Slavoj Rohatec",
+    "FC Kyjov 1919", "SK Zaječí", "KOVO Ždánice", "SK Vacenovice",
+  ],
+};
+const TEAM_COMP = { muzi: "8. liga", dorost: "6. liga st. dorost" };
+const TEAM_LABEL = { muzi: "Muži", dorost: "Dorost" };
+// Světlá témata: muži tyrkysové prvky, dorost černobílé
+const TEAM_THEME = {
+  muzi:   { primary: "#0fb5ac", secondary: "#eef3f4", text: "#0b1f2a" },
+  dorost: { primary: "#111111", secondary: "#f3f3f4", text: "#141414" },
+};
+
+const state = {
+  tpl: "result", format: "square", side: "home",
+  team: "muzi", // muzi | dorost
+  colors: { primary: "#0fb5ac", secondary: "#eef3f4", text: "#0b1f2a" },
+  logo: null, logoData: null,
+  oppLogo: null, oppLogoData: null,
+  coverImg: { muzi: null, dorost: null }, coverData: { muzi: null, dorost: null },
+  coverPos: "left", coverOffsetY: 0.5, coverBg: "photo",
+  schTime: true, venueTouched: false,
+  libs: { muzi: {}, dorost: {} }, // team -> { name -> dataURL|null }
+};
+function applyTheme() {
+  const t = TEAM_THEME[state.team] || TEAM_THEME.muzi;
+  state.colors = { primary: t.primary, secondary: t.secondary, text: t.text };
+  $("c_primary").value = t.primary; $("c_secondary").value = t.secondary; $("c_text").value = t.text;
+}
+function curLib() { if (!state.libs[state.team]) state.libs[state.team] = {}; return state.libs[state.team]; }
+function defLogos() { return window.DEFAULT_OPP_LOGOS || { muzi: {}, dorost: {} }; }
+// všechna jména pro daný tým = ligoví soupeři + vlastní přidaní
+function namesFor(team) {
+  const s = new Set(DEFAULT_LIBS[team] || []);
+  Object.keys(state.libs[team] || {}).forEach(n => s.add(n));
+  return Array.from(s);
+}
+// logo pro tým+jméno: nejdřív tvoje uložené, jinak výchozí z fotbal.cz
+function logoFor(team, name) {
+  const u = state.libs[team] && state.libs[team][name];
+  if (u) return u;
+  const d = defLogos()[team] && defLogos()[team][name];
+  return d || null;
+}
+
+const canvas = $("preview");
+const ctx = canvas.getContext("2d");
+
+/* ---------- cache obrázků soupeřů (pro mřížku) ---------- */
+const imgCache = {};
+function getImg(dataURL) {
+  if (!dataURL) return null;
+  if (imgCache[dataURL]) return imgCache[dataURL];
+  const img = new Image();
+  img.onload = () => render();
+  img.src = dataURL;
+  imgCache[dataURL] = img;
+  return img;
+}
+
+/* ---------- model ---------- */
+function buildModel() {
+  return {
+    tpl: state.tpl, format: state.format,
+    colors: state.colors,
+    teamLabel: TEAM_LABEL[state.team],
+    logo: state.logo, oppLogo: state.oppLogo,
+    footer: val("footer"),
+    result: {
+      home: val("r_home"), away: val("r_away"),
+      hs: val("r_hs"), as: val("r_as"), half: val("r_half"),
+      comp: val("r_comp"), date: val("r_date"),
+      scorers: val("r_scorers").split("\n").map(s => s.trim()).filter(Boolean),
+    },
+    invite: {
+      opp: val("i_opp"), side: state.side,
+      date: val("i_date"), time: val("i_time"),
+      venue: val("i_venue"), comp: val("i_comp"), title: val("i_title"),
+    },
+    announce: { eyebrow: val("a_eyebrow"), title: val("a_title"), text: val("a_text") },
+    cover: {
+      title: val("cv_title"), subtitle: val("cv_subtitle"),
+      photo: state.coverImg[state.team], pos: state.coverPos, offsetY: state.coverOffsetY, bg: state.coverBg,
+      badges: [
+        { label: TEAM_LABEL.muzi, color: TEAM_THEME.muzi.primary },
+        { label: TEAM_LABEL.dorost, color: TEAM_THEME.dorost.primary },
+      ],
+    },
+    souperi: {
+      title: val("s_title"), season: val("s_season"),
+      list: namesFor(state.team).sort((a, b) => a.localeCompare(b, "cs"))
+        .map(name => ({ name, logo: getImg(logoFor(state.team, name)) })),
+    },
+    schedule: buildSchedule(),
+  };
+}
+
+function buildSchedule() {
+  const sd = (window.DEFAULT_SCHEDULE || {})[state.team] || { matches: [] };
+  const matches = (sd.matches || []).map(m => {
+    const isHome = (m.home || "").toLowerCase().includes("brumovice");
+    return { round: m.round, date: m.date, time: m.time, opp: isHome ? m.away : m.home, home: isHome };
+  });
+  const parts = [];
+  if (sd.comp) parts.push(sd.comp);
+  if (sd.period) parts.push(sd.period);
+  return { title: val("sc_title"), sub: parts.join(" • "), showTime: state.schTime, matches };
+}
+
+function render() {
+  let baseW = 1080, baseH = 1080, scale = 1;
+  if (state.tpl === "cover") { baseW = 1640; baseH = 624; }
+  else if (state.format === "story") { baseH = 1920; }
+  else if (state.format === "print") { baseH = 1527; scale = 2480 / 1080; } // A4 na výšku ~300 DPI (2480×3508)
+  const pxW = Math.round(baseW * scale), pxH = Math.round(baseH * scale);
+  if (canvas.width !== pxW || canvas.height !== pxH) { canvas.width = pxW; canvas.height = pxH; }
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  const model = buildModel();
+  model.canvasW = baseW; model.canvasH = baseH;
+  Poster.render(ctx, model);
+}
+
+/* ---------- opponent name helper ---------- */
+function currentOpponentName() {
+  if (state.tpl === "invite") return val("i_opp");
+  // result: opponent = whichever side is NOT brumovice
+  const home = val("r_home"), away = val("r_away");
+  return home.toLowerCase().includes("brumovice") ? away : home;
+}
+function setCurrentOpponentName(name) {
+  if (state.tpl === "invite") { setVal("i_opp", name); return; }
+  const home = val("r_home");
+  if (home.toLowerCase().includes("brumovice")) setVal("r_away", name);
+  else setVal("r_home", name);
+}
+
+/* ---------- persistence ---------- */
+const LS = "brumovice_generator_v2";
+function save() {
+  try {
+    localStorage.setItem(LS, JSON.stringify({
+      logoData: state.logoData,
+      footer: val("footer"), libs: state.libs, team: state.team,
+    }));
+  } catch (e) {}
+}
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS) || "{}");
+    if (d.team && TEAM_THEME[d.team]) state.team = d.team;
+    if (d.footer) setVal("footer", d.footer);
+    if (d.libs) state.libs = d.libs;
+    else if (d.opponents) state.libs = { muzi: d.opponents, dorost: {} }; // migrace ze starší verze
+    if (!state.libs.muzi) state.libs.muzi = {};
+    if (!state.libs.dorost) state.libs.dorost = {};
+    if (d.logoData) setClubLogo(d.logoData);
+    else if (window.DEFAULT_LOGO) setClubLogo(window.DEFAULT_LOGO);
+  } catch (e) { if (window.DEFAULT_LOGO) setClubLogo(window.DEFAULT_LOGO); }
+}
+
+/* ---------- logos ---------- */
+function imgFrom(dataURL, cb) { const img = new Image(); img.onload = () => cb(img); img.src = dataURL; }
+function setClubLogo(dataURL) {
+  state.logoData = dataURL;
+  imgFrom(dataURL, img => { state.logo = img; render(); });
+  $("logoPreview").src = dataURL; $("logoPreview").style.display = "block";
+  $("logoText").textContent = "Klubové logo nahráno ✓";
+  $("logoRemove").style.display = "inline-block";
+}
+function setOppLogo(dataURL) {
+  state.oppLogoData = dataURL;
+  if (dataURL) { imgFrom(dataURL, img => { state.oppLogo = img; render(); }); $("oppLogoPreview").src = dataURL; $("oppLogoPreview").style.display = "block"; $("oppLogoText").textContent = "Logo soupeře nahráno ✓"; }
+  else { state.oppLogo = null; $("oppLogoPreview").style.display = "none"; $("oppLogoText").textContent = "Nahraj logo soupeře. Ulož si ho do knihovny a příště ho jen vybereš."; render(); }
+}
+function refreshOppSelect() {
+  const sel = $("oppSelect");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— nový soupeř —</option>';
+  const team = state.team;
+  namesFor(team).sort((a, b) => a.localeCompare(b, "cs")).forEach(name => {
+    const o = document.createElement("option");
+    o.value = name;
+    o.textContent = logoFor(team, name) ? name : name + "  (bez loga)";
+    sel.appendChild(o);
+  });
+  sel.value = cur;
+}
+
+/* ---------- events ---------- */
+$("logoInput").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { setClubLogo(r.result); save(); }; r.readAsDataURL(f); });
+$("logoRemove").addEventListener("click", () => { state.logo = null; state.logoData = null; $("logoPreview").style.display = "none"; $("logoText").textContent = "Nahraj klubové logo (ideálně PNG s průhledností). Uloží se v prohlížeči."; $("logoRemove").style.display = "none"; save(); render(); });
+
+$("oppLogoInput").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => setOppLogo(r.result); r.readAsDataURL(f); });
+
+function setCoverPhoto(dataURL) {
+  state.coverData[state.team] = dataURL;
+  imgFrom(dataURL, img => { state.coverImg[state.team] = img; render(); });
+  refreshCoverUI();
+}
+function refreshCoverUI() {
+  const data = state.coverData[state.team];
+  const prev = $("coverPhotoPreview");
+  if (data) { prev.src = data; prev.style.display = "block"; } else { prev.style.display = "none"; }
+  $("coverPhotoText").textContent = data ? "Fotka nahrána ✓" : "Vyber přednastavenou fotku výše, nebo nahraj vlastní.";
+  $("coverPresets").querySelectorAll("img").forEach(x => x.style.borderColor = (x.src === data) ? state.colors.primary : "transparent");
+}
+$("coverPhotoInput").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => setCoverPhoto(r.result); r.readAsDataURL(f); });
+
+function buildCoverPresets() {
+  const box = $("coverPresets");
+  const covers = window.DEFAULT_COVERS || [];
+  box.innerHTML = "";
+  if (!covers.length) { box.style.display = "none"; return; }
+  covers.forEach(src => {
+    const im = document.createElement("img");
+    im.src = src; im.alt = "týmová fotka";
+    im.style.cssText = "width:120px; height:56px; object-fit:cover; border-radius:8px; cursor:pointer; border:3px solid transparent";
+    im.addEventListener("click", () => setCoverPhoto(src));
+    box.appendChild(im);
+  });
+}
+document.querySelectorAll("#cv_pos_switch button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#cv_pos_switch button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); state.coverPos = b.dataset.pos; render();
+}));
+$("cv_offset").addEventListener("input", e => { state.coverOffsetY = (+e.target.value) / 100; render(); });
+document.querySelectorAll("#sc_time_switch button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#sc_time_switch button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); state.schTime = b.dataset.t === "1"; render();
+}));
+function applyCoverBg() { $("coverPhotoControls").style.display = state.coverBg === "clean" ? "none" : "block"; }
+document.querySelectorAll("#cv_bg_switch button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#cv_bg_switch button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active"); state.coverBg = b.dataset.bg; applyCoverBg(); render();
+}));
+
+$("oppSelect").addEventListener("change", e => {
+  const name = e.target.value;
+  if (!name) { setOppLogo(null); return; }
+  setCurrentOpponentName(name);
+  setOppLogo(logoFor(state.team, name));
+  render();
+});
+
+$("oppSaveBtn").addEventListener("click", () => {
+  const name = currentOpponentName().trim();
+  if (!name) { alert("Nejdřív vyplň jméno soupeře."); return; }
+  if (!state.oppLogoData) { alert("Nejdřív nahraj logo soupeře."); return; }
+  curLib()[name] = state.oppLogoData;
+  refreshOppSelect(); $("oppSelect").value = name; save();
+  const b = $("oppSaveBtn"); const old = b.textContent; b.textContent = "Uloženo ✓ (" + name + ")"; setTimeout(() => b.textContent = old, 1600);
+});
+
+document.querySelectorAll("#teamSwitch button").forEach(btn => btn.addEventListener("click", () => {
+  document.querySelectorAll("#teamSwitch button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  const prev = state.team;
+  state.team = btn.dataset.team;
+  applyTheme();
+  // pokud pole soutěže drží výchozí text druhého týmu, přepiš na aktuální
+  ["r_comp", "i_comp"].forEach(id => {
+    const el = $(id); if (!el) return;
+    if (el.value.startsWith(TEAM_COMP[prev])) el.value = el.value.replace(TEAM_COMP[prev], TEAM_COMP[state.team]);
+  });
+  $("oppSelect").value = "";
+  setOppLogo(null);
+  refreshOppSelect();
+  autoLogoFromName();
+  refreshCoverUI();
+  save(); render();
+}));
+
+document.querySelectorAll("#tabs .tab").forEach(tab => tab.addEventListener("click", () => {
+  document.querySelectorAll("#tabs .tab").forEach(t => t.classList.remove("active"));
+  tab.classList.add("active"); state.tpl = tab.dataset.tpl;
+  document.querySelectorAll(".tpl").forEach(el => el.style.display = el.dataset.tpl === state.tpl ? "block" : "none");
+  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover") ? "none" : "block";
+  $("formatToggle").style.display = state.tpl === "cover" ? "none" : "";
+  render();
+}));
+
+document.querySelectorAll("#formatToggle button").forEach(btn => btn.addEventListener("click", () => {
+  document.querySelectorAll("#formatToggle button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active"); state.format = btn.dataset.fmt; render();
+}));
+
+$("i_home_btn").addEventListener("click", () => setSide("home"));
+$("i_away_btn").addEventListener("click", () => setSide("away"));
+function setSide(v) { state.side = v; $("i_home_btn").classList.toggle("active", v === "home"); $("i_away_btn").classList.toggle("active", v === "away"); autoVenue(); render(); }
+// místo zápasu: doma = Brumovice, venku = hřiště soupeře (dokud si to uživatel nepřepíše)
+function autoVenue() {
+  if (state.venueTouched) return;
+  const opp = val("i_opp").trim();
+  setVal("i_venue", state.side === "away" ? ("Hřiště " + (opp || "soupeře")) : "Hřiště Brumovice");
+  render();
+}
+$("i_venue").addEventListener("input", () => { state.venueTouched = true; });
+$("i_opp").addEventListener("input", autoVenue);
+
+// Výsledek: Brumky doma / venku (prohodí týmy i skóre)
+function resultSide() { return val("r_home").toLowerCase().includes("brumovice") ? "home" : "away"; }
+function refreshResultSideBtns() { const s = resultSide(); $("r_home_btn").classList.toggle("active", s === "home"); $("r_away_btn").classList.toggle("active", s === "away"); }
+function setResultSide(side) {
+  if (resultSide() === side) return;
+  const h = val("r_home"), a = val("r_away"), hs = val("r_hs"), as = val("r_as");
+  setVal("r_home", a); setVal("r_away", h); setVal("r_hs", as); setVal("r_as", hs);
+  refreshResultSideBtns(); autoLogoFromName(); save(); render();
+}
+$("r_home_btn").addEventListener("click", () => setResultSide("home"));
+$("r_away_btn").addEventListener("click", () => setResultSide("away"));
+["r_home", "r_away"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", refreshResultSideBtns); });
+
+["c_primary","c_secondary","c_text"].forEach(id => $(id).addEventListener("input", e => {
+  const key = id === "c_primary" ? "primary" : id === "c_secondary" ? "secondary" : "text";
+  state.colors[key] = e.target.value; save(); render();
+}));
+
+document.querySelectorAll("input[type=text], textarea").forEach(el => el.addEventListener("input", () => { render(); save(); }));
+
+// automatické načtení loga soupeře podle napsaného jména (jen když je logo k dispozici)
+function autoLogoFromName() {
+  const nm = currentOpponentName().trim();
+  const f = logoFor(state.team, nm);
+  if (f) { setOppLogo(f); $("oppSelect").value = namesFor(state.team).includes(nm) ? nm : ""; }
+}
+["r_home", "r_away", "i_opp"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", autoLogoFromName); });
+
+function currentFileName() {
+  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
+  const suffix = state.tpl === "cover" ? "fb" : state.format === "print" ? "tisk-A4" : state.format;
+  return "brumovice-" + name + "-" + suffix + ".png";
+}
+$("downloadBtn").addEventListener("click", () => {
+  const link = document.createElement("a");
+  link.download = currentFileName();
+  link.href = canvas.toDataURL("image/png"); link.click();
+});
+
+// Sdílení přes systémovou nabídku (mobil): uživatel vybere FB/Instagram → Feed/Stories
+function canShareFiles() {
+  try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob()], "t.png", { type: "image/png" })] })); }
+  catch (e) { return false; }
+}
+$("shareBtn").addEventListener("click", async () => {
+  const b = $("shareBtn"); const old = b.textContent;
+  try {
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    const file = new File([blob], currentFileName(), { type: "image/png" });
+    const text = (val("ai_output") || "").trim();
+    if (canShareFiles()) {
+      await navigator.share(Object.assign({ files: [file] }, text ? { text } : {}));
+      return;
+    }
+    // fallback: zkopíruj obrázek + popisek do schránky a nasměruj uživatele
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      if (text) { try { await navigator.clipboard.writeText(text); } catch (e) {} }
+    } catch (e) {}
+    b.textContent = "Zkopírováno – vlož do FB/IG ✓"; setTimeout(() => b.textContent = old, 2200);
+    alert("Přímé sdílení tenhle prohlížeč/počítač nepodporuje.\n\nObrázek je v schránce – otevři Facebook/Instagram a vlož ho (Ctrl/Cmd+V), nebo použij Stáhnout.\n\nTip: pro sdílení jedním klikem otevři tenhle generátor v mobilu.");
+  } catch (e) {
+    if (e && e.name === "AbortError") return; // uživatel zavřel nabídku
+    alert("Sdílení se nepovedlo: " + (e && e.message ? e.message : e));
+  } finally {
+    if (b.textContent === "Sdílím…") b.textContent = old;
+  }
+});
+$("copyBtn").addEventListener("click", async () => {
+  try {
+    const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    const b = $("copyBtn"); const old = b.textContent; b.textContent = "Zkopírováno ✓"; setTimeout(() => b.textContent = old, 1500);
+  } catch (e) { alert("Kopírování do schránky se v tomto prohlížeči nepovedlo. Použij Stáhnout."); }
+});
+
+/* ---------- AI popisek (OpenAI) ---------- */
+const TONE_TEXT = {
+  mix: "přátelský a informativní, s trochou emocí a 1–3 vhodnými emoji",
+  fanouskovsky: "fanouškovský, energický a hecovací, s emoji",
+  seriozni: "střízlivý a informativní, bez emoji",
+};
+function buildAiContext() {
+  const m = buildModel();
+  const team = state.team === "dorost" ? "starší dorost" : "A-tým dospělých";
+  if (state.tpl === "result") {
+    const r = m.result;
+    return `Typ příspěvku: VÝSLEDEK zápasu (${team}). Zápas: ${r.home} ${r.hs}:${r.as} ${r.away}`
+      + (r.half ? ` (poločas ${r.half})` : "") + `. Soutěž: ${r.comp}. Datum: ${r.date}.`
+      + (r.scorers.length ? ` Střelci Sokola: ${r.scorers.join(", ")}.` : "");
+  }
+  if (state.tpl === "invite") {
+    const iv = m.invite; const home = iv.side !== "away";
+    return `Typ příspěvku: POZVÁNKA na zápas (${team}). ${home ? "Doma" : "Venku"} proti ${iv.opp}.`
+      + ` Datum a čas: ${iv.date} ${iv.time}. Místo: ${iv.venue}. Soutěž: ${iv.comp}.`;
+  }
+  if (state.tpl === "souperi") {
+    const s = m.souperi;
+    return `Typ příspěvku: PŘEHLED SOUPEŘŮ na sezónu ${s.season} (${team}). Soupeři: ${s.list.map(o => o.name).join(", ")}.`;
+  }
+  if (state.tpl === "schedule") {
+    const sc = m.schedule;
+    const lines = sc.matches.map(x => `${x.date}${sc.showTime && x.time ? " " + x.time : ""} ${x.home ? "doma s" : "venku u"} ${x.opp}`);
+    return `Typ příspěvku: ROZPIS ZÁPASŮ (${team}) – ${sc.sub}. Zápasy: ${lines.join("; ")}.`;
+  }
+  if (state.tpl === "cover") {
+    const cv = m.cover;
+    return `Typ příspěvku: ÚVODNÍ (cover) FOTO na Facebook (${team}). Nadpis: ${cv.title}. Podtitulek: ${cv.subtitle}. Je to týmová fotka mužstva.`;
+  }
+  const a = m.announce;
+  return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;
+}
+$("ai_generate").addEventListener("click", async () => {
+  const provider = val("ai_provider") || "gemini";
+  const note = val("ai_note").trim();
+  const tone = TONE_TEXT[val("ai_tone")] || TONE_TEXT.mix;
+  const sys = "Jsi správce sociálních sítí fotbalového klubu Sokol Brumovice (Tělocvičná jednota Sokol Brumovice, fotbal). "
+    + "Z poznámky autora a dat k příspěvku vytvoř hotový, gramaticky správný popisek na Facebook a Instagram v češtině. "
+    + "Styl: " + tone + ". Délka 2–4 věty. Doplň, co dává smysl (např. poděkování fanouškům nebo výzva k podpoře), "
+    + "ale NEVYMÝŠLEJ si fakta, která nejsou v datech ani v poznámce. Na konec můžeš přidat 1–3 relevantní hashtagy. "
+    + "Vrať POUZE výsledný text popisku, nic dalšího.";
+  const user = "Data k příspěvku:\n" + buildAiContext() + "\n\nPoznámka autora: " + (note || "(žádná – vyjdi z dat)");
+  const btn = $("ai_generate"); const old = btn.textContent;
+  btn.textContent = "Generuji…"; btn.disabled = true;
+  try {
+    let out = "";
+    if (provider === "openai") {
+      const key = val("ai_key").trim();
+      if (!key) throw new Error("Vyplň OpenAI API klíč v části Nastavení AI.");
+      const model = val("ai_model").trim() || "gpt-4o-mini";
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
+        body: JSON.stringify({ model, messages: [{ role: "system", content: sys }, { role: "user", content: user }], temperature: 0.8 }),
+      });
+      if (!res.ok) { const t = await res.text(); throw new Error("OpenAI " + res.status + ": " + t.slice(0, 300)); }
+      const data = await res.json();
+      out = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content || "").trim();
+    } else {
+      const key = val("ai_gkey").trim();
+      if (!key) throw new Error("Vyplň Google Gemini API klíč v části Nastavení AI.\nZískáš ho zdarma na aistudio.google.com/apikey.");
+      const model = val("ai_gmodel").trim() || "gemini-2.5-flash";
+      const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key);
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: sys }] },
+          contents: [{ role: "user", parts: [{ text: user }] }],
+          generationConfig: { temperature: 0.8 },
+        }),
+      });
+      if (!res.ok) { const t = await res.text(); throw new Error("Gemini " + res.status + ": " + t.slice(0, 300)); }
+      const data = await res.json();
+      const cand = data.candidates && data.candidates[0];
+      const parts = cand && cand.content && cand.content.parts;
+      out = (parts ? parts.map(p => p.text || "").join("") : "").trim();
+    }
+    setVal("ai_output", out || "(prázdná odpověď)"); saveAi();
+  } catch (e) {
+    alert("Nepovedlo se vygenerovat popisek:\n" + e.message);
+  } finally {
+    btn.textContent = old; btn.disabled = false;
+  }
+});
+$("ai_copy").addEventListener("click", async () => {
+  const t = val("ai_output"); if (!t) return;
+  try { await navigator.clipboard.writeText(t); const b = $("ai_copy"); const o = b.textContent; b.textContent = "Zkopírováno ✓"; setTimeout(() => b.textContent = o, 1500); }
+  catch (e) { alert("Kopírování selhalo – označ text ručně a zkopíruj (Cmd+C)."); }
+});
+const AI_LS = "brumovice_ai_v1";
+function saveAi() {
+  try {
+    localStorage.setItem(AI_LS, JSON.stringify({
+      provider: val("ai_provider"),
+      key: val("ai_key"), model: val("ai_model"),
+      gkey: val("ai_gkey"), gmodel: val("ai_gmodel"),
+      tone: val("ai_tone"),
+      note: val("ai_note"), output: val("ai_output"),
+    }));
+  } catch (e) {}
+}
+function loadAi() {
+  try {
+    const d = JSON.parse(localStorage.getItem(AI_LS) || "{}");
+    if (d.provider) $("ai_provider").value = d.provider;
+    if (d.key) setVal("ai_key", d.key);
+    if (d.model) setVal("ai_model", d.model);
+    if (d.gkey) setVal("ai_gkey", d.gkey);
+    if (d.gmodel) setVal("ai_gmodel", d.gmodel);
+    if (d.tone) $("ai_tone").value = d.tone;
+    if (d.note) setVal("ai_note", d.note);
+    if (d.output) setVal("ai_output", d.output);
+  } catch (e) {}
+  applyProvider();
+}
+function applyProvider() {
+  const p = val("ai_provider") || "gemini";
+  const ob = $("ai_openai_box"), gb = $("ai_gemini_box");
+  if (ob) ob.style.display = p === "openai" ? "" : "none";
+  if (gb) gb.style.display = p === "gemini" ? "" : "none";
+}
+["ai_provider", "ai_key", "ai_model", "ai_gkey", "ai_gmodel", "ai_tone", "ai_note", "ai_output"].forEach(id => { const el = $(id); if (el) { el.addEventListener("input", saveAi); el.addEventListener("change", saveAi); } });
+const _pv = $("ai_provider"); if (_pv) _pv.addEventListener("change", applyProvider);
+
+/* ---------- init ---------- */
+load();
+loadAi();
+// nastav aktivní tým + téma podle uloženého stavu
+document.querySelectorAll("#teamSwitch button").forEach(b => b.classList.toggle("active", b.dataset.team === state.team));
+applyTheme();
+if (state.team !== "muzi") {
+  ["r_comp", "i_comp"].forEach(id => { const el = $(id); if (el && el.value.startsWith(TEAM_COMP.muzi)) el.value = el.value.replace(TEAM_COMP.muzi, TEAM_COMP[state.team]); });
+}
+refreshOppSelect();
+refreshResultSideBtns();
+autoLogoFromName();
+buildCoverPresets();
+// přednastavená úvodní fotka pro muže – ať je hned vidět
+if (!state.coverData.muzi && (window.DEFAULT_COVERS || []).length) {
+  const src = window.DEFAULT_COVERS[0];
+  state.coverData.muzi = src;
+  imgFrom(src, img => { state.coverImg.muzi = img; render(); });
+}
+refreshCoverUI();
+applyCoverBg();
+// na počítači (bez přímého sdílení) popiš tlačítko srozumitelněji
+if (!canShareFiles()) { $("shareBtn").textContent = "📋 Zkopírovat pro FB / Instagram"; }
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+render();
+
+// registrace service workeru (offline režim) – funguje jen přes http(s), ne z file://
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+</script>
+</body>
+</html>
