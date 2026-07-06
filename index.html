@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-06-2" />
+<meta name="app-version" content="2026-07-06-4" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -28,7 +28,25 @@
   header h1 { font-size: 17px; margin: 0; font-weight: 800; display:flex; align-items:center; gap:10px; }
   header .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .layout { display: grid; grid-template-columns: 400px 1fr; min-height: calc(100vh - 64px); }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .controls { max-height: none; overflow: visible; border-right: none; }
+    #preview { max-height: 60vh; }
+  }
+  @media (max-width: 600px) {
+    header { padding: 12px 16px; gap: 10px; }
+    header h1 { font-size: 15px; }
+    header .sub { display: none; }
+    .format-toggle { width: 100%; }
+    .format-toggle button { flex: 1; padding: 9px 6px; font-size: 12px; }
+    .controls { padding: 16px; }
+    .preview { padding: 16px; }
+    .tabs { gap: 6px; }
+    .tab { flex: 1 1 calc(33.333% - 4px); padding: 10px 4px; font-size: 12px; white-space: normal; }
+    .seg button { padding: 10px 6px; font-size: 12px; }
+    #preview { max-height: 52vh; }
+    .downloads { max-width: 100%; }
+  }
   .controls { padding: 20px; border-right: 1px solid var(--border); overflow-y: auto; max-height: calc(100vh - 64px); }
   .preview { padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;
     background: radial-gradient(1200px 600px at 30% -10%, rgba(29,78,216,.10), transparent), radial-gradient(900px 500px at 90% 110%, rgba(225,29,42,.10), transparent); }
@@ -40,8 +58,20 @@
   .btn:disabled { opacity: .6; cursor: default; }
   .row { display: flex; gap: 10px; } .row > * { flex: 1; }
   .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 22px 0 12px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-weight: 800; }
-  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-  .tab { flex: 1; padding: 11px; text-align: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); transition: .15s; }
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .tab { flex: 1 1 88px; padding: 11px 8px; text-align: center; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--muted); transition: .15s; white-space: nowrap; }
+  .lu-slot { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .lu-slot .pos { flex: 0 0 78px; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+  .lu-slot select { flex: 1; }
+  .lu-subs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .lu-subs label { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; font-weight: 600; }
+  .lu-subs input { width: auto; }
+  .lu-prow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .lu-prow .lu-thumb { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--panel-2); border: 1px solid var(--border); cursor: pointer; display: block; }
+  .lu-prow .lu-num { flex: 0 0 48px; }
+  .lu-prow .lu-name { flex: 1; }
+  .lu-prow .lu-del { flex: 0 0 auto; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .lu-empty { color: var(--muted); font-size: 13px; padding: 6px 0 10px; }
   .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .seg { display: flex; gap: 6px; }
   .seg button { flex: 1; padding: 9px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit; }
@@ -96,6 +126,7 @@
       <div class="tab" data-tpl="announce">Oznámení</div>
       <div class="tab" data-tpl="souperi">Soupeři</div>
       <div class="tab" data-tpl="schedule">Rozpis</div>
+      <div class="tab" data-tpl="lineup">Sestava</div>
       <div class="tab" data-tpl="cover">Úvodní foto</div>
     </div>
 
@@ -162,6 +193,51 @@
         </div>
       </div>
       <div class="hint">Rozpis se vezme automaticky z fotbal.cz podle zvoleného týmu nahoře (Muži / Dorost) – podzim 2026. Vaše zápasy jsou zvýrazněné jako <b>DOMA</b> / <b>VENKU</b>. Pro nástěnku je ideální formát <b>Tisk A4</b> nebo <b>Story</b>.</div>
+    </div>
+
+    <!-- SESTAVA (lineup) -->
+    <div class="tpl" data-tpl="lineup" style="display:none">
+      <div class="field"><label>Nadpis</label><input type="text" id="lu_title" value="Základní sestava" /></div>
+      <div class="field row">
+        <div><label>Soupeř</label><input type="text" id="lu_opp" value="Moravan Lednice" /></div>
+        <div><label>Datum</label><input type="text" id="lu_date" value="15. 8. 2026" /></div>
+      </div>
+      <div class="field row">
+        <div><label>Čas</label><input type="text" id="lu_time" value="16:30" /></div>
+        <div><label>Soutěž / kolo</label><input type="text" id="lu_comp" value="8. liga • 1. kolo" /></div>
+      </div>
+      <div class="field">
+        <label>Formace (rozestavení)</label>
+        <select id="lu_formation">
+          <option value="4-4-2">4-4-2</option>
+          <option value="4-3-3">4-3-3</option>
+          <option value="4-2-3-1">4-2-3-1</option>
+          <option value="4-1-4-1">4-1-4-1</option>
+          <option value="4-5-1">4-5-1</option>
+          <option value="3-5-2">3-5-2</option>
+          <option value="3-4-3">3-4-3</option>
+          <option value="5-3-2">5-3-2</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Základní sestava (vyber z kádru)</label>
+        <div id="lu_slots"></div>
+      </div>
+      <div class="field">
+        <label>Náhradníci</label>
+        <div id="lu_subs" class="lu-subs"></div>
+        <div class="mini" id="lu_subs_hint">Zaškrtni hráče z kádru, kteří jsou na lavičce.</div>
+      </div>
+      <div class="field"><label>Trenér (nepovinné)</label><input type="text" id="lu_coach" value="" placeholder="Jméno trenéra" /></div>
+      <details>
+        <summary>Kádr týmu (jména + fotky hráčů)</summary>
+        <div style="margin-top:10px">
+          <div class="hint" style="margin-bottom:10px">Fotku hráče nahraješ <b>jednou</b> a používá se pořád dokola. Kádr se drží zvlášť pro <b>Muže</b> a <b>Dorost</b> a ukládá se v tomto prohlížeči. Fotka se automaticky zmenší, ať web zůstane rychlý.</div>
+          <div id="lu_roster"></div>
+          <button type="button" class="file-btn" id="lu_add_player" style="width:100%; margin-top:6px">➕ Přidat hráče</button>
+        </div>
+      </details>
+      <div class="hint">Sestavu <b>nejde stáhnout z fotbal.cz s fotkami</b> (fotky členů jsou v neveřejné databázi FAČR za přihlášením). Proto si jednou nahraješ kádr a před zápasem už jen klikáš, kdo hraje. Pro sdílení je ideální <b>Story</b> nebo <b>Feed</b>.</div>
     </div>
 
     <!-- ÚVODNÍ FOTO (FB cover) -->
@@ -339,6 +415,11 @@ const TEAM_THEME = {
   muzi:   { primary: "#0fb5ac", secondary: "#eef3f4", text: "#0b1f2a" },
   dorost: { primary: "#111111", secondary: "#f3f3f4", text: "#141414" },
 };
+// formace: číslice = obránci, záložníci, …, útočníci (součet vždy 10 + brankář)
+const FORMATIONS = {
+  "4-4-2": [4,4,2], "4-3-3": [4,3,3], "4-2-3-1": [4,2,3,1], "4-1-4-1": [4,1,4,1],
+  "4-5-1": [4,5,1], "3-5-2": [3,5,2], "3-4-3": [3,4,3], "5-3-2": [5,3,2],
+};
 
 const state = {
   tpl: "result", format: "square", side: "home",
@@ -350,6 +431,11 @@ const state = {
   coverPos: "left", coverOffsetY: 0.5, coverBg: "photo",
   schTime: true, venueTouched: false,
   libs: { muzi: {}, dorost: {} }, // team -> { name -> dataURL|null }
+  roster: { muzi: [], dorost: [] }, // team -> [ {id, num, name, photo} ]
+  lineup: { // team -> sestava
+    muzi:   { formation: "4-4-2", starters: [], subs: [] },
+    dorost: { formation: "4-4-2", starters: [], subs: [] },
+  },
 };
 function applyTheme() {
   const t = TEAM_THEME[state.team] || TEAM_THEME.muzi;
@@ -421,6 +507,7 @@ function buildModel() {
         .map(name => ({ name, logo: getImg(logoFor(state.team, name)) })),
     },
     schedule: buildSchedule(),
+    lineup: buildLineup(),
   };
 }
 
@@ -434,6 +521,28 @@ function buildSchedule() {
   if (sd.comp) parts.push(sd.comp);
   if (sd.period) parts.push(sd.period);
   return { title: val("sc_title"), sub: parts.join(" • "), showTime: state.schTime, matches };
+}
+
+/* ---------- sestava (lineup) ---------- */
+function curRoster() { if (!state.roster[state.team]) state.roster[state.team] = []; return state.roster[state.team]; }
+function curLineup() {
+  if (!state.lineup[state.team]) state.lineup[state.team] = { formation: "4-4-2", starters: [], subs: [] };
+  return state.lineup[state.team];
+}
+function fmtArr() { return FORMATIONS[curLineup().formation] || FORMATIONS["4-4-2"]; }
+function playerById(id) { return curRoster().find(p => p.id === id) || null; }
+function buildLineup() {
+  const lu = curLineup(), fmt = fmtArr();
+  const tok = id => { const p = playerById(id); return p ? { name: p.name, num: p.num, photo: getImg(p.photo) } : null; };
+  const gk = tok(lu.starters[0]);
+  const lines = []; let idx = 1;
+  for (const count of fmt) { const row = []; for (let i = 0; i < count; i++) { row.push(tok(lu.starters[idx])); idx++; } lines.push(row); }
+  const subs = (lu.subs || []).map(tok).filter(Boolean);
+  return {
+    title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"),
+    time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
+    formation: curLineup().formation, gk, lines, subs,
+  };
 }
 
 function render() {
@@ -563,6 +672,136 @@ document.querySelectorAll("#cv_bg_switch button").forEach(b => b.addEventListene
   b.classList.add("active"); state.coverBg = b.dataset.bg; applyCoverBg(); render();
 }));
 
+/* ---------- sestava: persistence + UI kádru ---------- */
+const LU_LS = "brumovice_lineup_v1";
+function saveLineup() {
+  try {
+    localStorage.setItem(LU_LS, JSON.stringify({
+      roster: state.roster, lineup: state.lineup,
+      meta: { title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"), time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach") },
+    }));
+  } catch (e) { alert("Nepodařilo se uložit kádr – možná je plná paměť prohlížeče (příliš mnoho fotek)."); }
+}
+function loadLineup() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LU_LS) || "{}");
+    if (d.roster) { state.roster.muzi = d.roster.muzi || []; state.roster.dorost = d.roster.dorost || []; }
+    if (d.lineup) ["muzi", "dorost"].forEach(t => { if (d.lineup[t]) state.lineup[t] = Object.assign({ formation: "4-4-2", starters: [], subs: [] }, d.lineup[t]); });
+    if (d.meta) { if (d.meta.title) setVal("lu_title", d.meta.title); setVal("lu_opp", d.meta.opp || ""); setVal("lu_date", d.meta.date || ""); setVal("lu_time", d.meta.time || ""); if (d.meta.comp) setVal("lu_comp", d.meta.comp); setVal("lu_coach", d.meta.coach || ""); }
+  } catch (e) {}
+}
+function newId() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+// zmenši fotku na čtverec (cover) kvůli velikosti localStorage a rychlosti
+function resizePhoto(dataURL, size, cb) {
+  const im = new Image();
+  im.onload = () => {
+    const cv = document.createElement("canvas"); cv.width = size; cv.height = size;
+    const cx = cv.getContext("2d");
+    const r = Math.max(size / im.width, size / im.height);
+    const dw = im.width * r, dh = im.height * r;
+    cx.drawImage(im, (size - dw) / 2, (size - dh) / 2, dw, dh);
+    cb(cv.toDataURL("image/jpeg", 0.85));
+  };
+  im.src = dataURL;
+}
+function renderRoster() {
+  const box = $("lu_roster"); if (!box) return;
+  const list = curRoster(); box.innerHTML = "";
+  if (!list.length) { const d = document.createElement("div"); d.className = "lu-empty"; d.textContent = "Zatím žádní hráči. Přidej je tlačítkem níže."; box.appendChild(d); return; }
+  list.forEach(p => {
+    const row = document.createElement("div"); row.className = "lu-prow";
+    const img = document.createElement("img"); img.className = "lu-thumb"; img.alt = ""; img.title = "Klikni pro nahrání/změnu fotky";
+    if (p.photo) img.src = p.photo;
+    const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.style.display = "none";
+    img.addEventListener("click", () => file.click());
+    file.addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => resizePhoto(rd.result, 320, data => { p.photo = data; saveLineup(); renderRoster(); render(); }); rd.readAsDataURL(f); });
+    const num = document.createElement("input"); num.type = "text"; num.className = "lu-num"; num.value = p.num || ""; num.placeholder = "#"; num.maxLength = 3;
+    num.addEventListener("input", () => { p.num = num.value.trim(); saveLineup(); refreshSlotOptions(); renderSubs(); render(); });
+    const name = document.createElement("input"); name.type = "text"; name.className = "lu-name"; name.value = p.name || ""; name.placeholder = "Jméno hráče";
+    name.addEventListener("input", () => { p.name = name.value; saveLineup(); refreshSlotOptions(); renderSubs(); render(); });
+    const del = document.createElement("button"); del.type = "button"; del.className = "lu-del"; del.textContent = "✕"; del.title = "Odebrat hráče";
+    del.addEventListener("click", () => {
+      state.roster[state.team] = curRoster().filter(x => x.id !== p.id);
+      const lu = curLineup();
+      lu.starters = (lu.starters || []).map(id => id === p.id ? "" : id);
+      lu.subs = (lu.subs || []).filter(id => id !== p.id);
+      saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); render();
+    });
+    row.append(img, file, num, name, del);
+    box.appendChild(row);
+  });
+}
+function slotLabels() {
+  const fmt = fmtArr(); const labels = ["Brankář"];
+  fmt.forEach((count, li) => {
+    let cat = "Záložník";
+    if (li === 0) cat = "Obránce"; else if (li === fmt.length - 1) cat = "Útočník";
+    for (let i = 0; i < count; i++) labels.push(cat);
+  });
+  return labels;
+}
+function playerOptionsHTML(selectedId) {
+  let html = '<option value="">— vyber —</option>';
+  curRoster().forEach(p => {
+    const label = ((p.num ? p.num + " " : "") + (p.name || "(bez jména)")).replace(/</g, "&lt;");
+    html += '<option value="' + p.id + '"' + (p.id === selectedId ? " selected" : "") + ">" + label + "</option>";
+  });
+  return html;
+}
+function renderLineupSlots() {
+  const box = $("lu_slots"); if (!box) return;
+  const lu = curLineup(); const labels = slotLabels();
+  lu.starters = lu.starters || []; lu.starters.length = 11;
+  box.innerHTML = "";
+  for (let i = 0; i < 11; i++) {
+    const row = document.createElement("div"); row.className = "lu-slot";
+    const pos = document.createElement("div"); pos.className = "pos"; pos.textContent = labels[i] || "";
+    const sel = document.createElement("select"); sel.dataset.slot = String(i);
+    sel.innerHTML = playerOptionsHTML(lu.starters[i] || "");
+    sel.addEventListener("change", () => {
+      const id = sel.value;
+      if (id) for (let j = 0; j < 11; j++) if (j !== i && lu.starters[j] === id) lu.starters[j] = "";
+      lu.starters[i] = id;
+      if (id) lu.subs = (lu.subs || []).filter(x => x !== id);
+      saveLineup(); renderLineupSlots(); renderSubs(); render();
+    });
+    row.append(pos, sel);
+    box.appendChild(row);
+  }
+}
+function refreshSlotOptions() {
+  const box = $("lu_slots"); if (!box) return;
+  const lu = curLineup();
+  box.querySelectorAll("select").forEach(sel => { const i = +sel.dataset.slot; sel.innerHTML = playerOptionsHTML(lu.starters[i] || ""); });
+}
+function renderSubs() {
+  const box = $("lu_subs"); if (!box) return;
+  const lu = curLineup();
+  const starterIds = new Set((lu.starters || []).filter(Boolean));
+  box.innerHTML = "";
+  const avail = curRoster().filter(p => !starterIds.has(p.id));
+  if (!avail.length) { const d = document.createElement("div"); d.className = "lu-empty"; d.textContent = curRoster().length ? "Všichni hráči jsou v základní sestavě." : "Nejdřív přidej hráče do kádru."; box.appendChild(d); return; }
+  lu.subs = (lu.subs || []).filter(id => avail.some(p => p.id === id));
+  avail.forEach(p => {
+    const lab = document.createElement("label");
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = lu.subs.includes(p.id);
+    cb.addEventListener("change", () => {
+      if (cb.checked) { if (!lu.subs.includes(p.id)) lu.subs.push(p.id); }
+      else lu.subs = lu.subs.filter(x => x !== p.id);
+      saveLineup(); render();
+    });
+    lab.append(cb, document.createTextNode(" " + (p.num ? p.num + " " : "") + (p.name || "(bez jména)")));
+    box.appendChild(lab);
+  });
+}
+function refreshLineupUI() {
+  const fsel = $("lu_formation"); if (fsel) fsel.value = curLineup().formation;
+  renderRoster(); renderLineupSlots(); renderSubs();
+}
+$("lu_add_player").addEventListener("click", () => { curRoster().push({ id: newId(), num: "", name: "", photo: null }); saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); });
+$("lu_formation").addEventListener("change", () => { curLineup().formation = $("lu_formation").value; saveLineup(); renderLineupSlots(); render(); });
+["lu_title", "lu_opp", "lu_date", "lu_time", "lu_comp", "lu_coach"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", saveLineup); });
+
 $("oppSelect").addEventListener("change", e => {
   const name = e.target.value;
   if (!name) { setOppLogo(null); return; }
@@ -596,6 +835,7 @@ document.querySelectorAll("#teamSwitch button").forEach(btn => btn.addEventListe
   refreshOppSelect();
   autoLogoFromName();
   refreshCoverUI();
+  refreshLineupUI();
   save(); render();
 }));
 
@@ -603,7 +843,7 @@ document.querySelectorAll("#tabs .tab").forEach(tab => tab.addEventListener("cli
   document.querySelectorAll("#tabs .tab").forEach(t => t.classList.remove("active"));
   tab.classList.add("active"); state.tpl = tab.dataset.tpl;
   document.querySelectorAll(".tpl").forEach(el => el.style.display = el.dataset.tpl === state.tpl ? "block" : "none");
-  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover") ? "none" : "block";
+  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup") ? "none" : "block";
   $("formatToggle").style.display = state.tpl === "cover" ? "none" : "";
   render();
 }));
@@ -655,7 +895,7 @@ function autoLogoFromName() {
 ["r_home", "r_away", "i_opp"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", autoLogoFromName); });
 
 function currentFileName() {
-  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
+  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
   const suffix = state.tpl === "cover" ? "fb" : state.format === "print" ? "tisk-A4" : state.format;
   return "brumovice-" + name + "-" + suffix + ".png";
 }
@@ -734,6 +974,13 @@ function buildAiContext() {
   if (state.tpl === "cover") {
     const cv = m.cover;
     return `Typ příspěvku: ÚVODNÍ (cover) FOTO na Facebook (${team}). Nadpis: ${cv.title}. Podtitulek: ${cv.subtitle}. Je to týmová fotka mužstva.`;
+  }
+  if (state.tpl === "lineup") {
+    const l = m.lineup;
+    const names = [l.gk].concat(...l.lines).filter(Boolean).map(p => (p.num ? p.num + " " : "") + p.name);
+    const subs = (l.subs || []).map(p => (p.num ? p.num + " " : "") + p.name);
+    return `Typ příspěvku: ZÁKLADNÍ SESTAVA (${team}) na zápas proti ${l.opp} (${l.date}${l.time ? " " + l.time : ""}). Formace ${l.formation}.`
+      + ` Základní 11: ${names.join(", ")}.` + (subs.length ? ` Náhradníci: ${subs.join(", ")}.` : "") + (l.coach ? ` Trenér: ${l.coach}.` : "");
   }
   const a = m.announce;
   return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;
@@ -855,6 +1102,8 @@ const _pv = $("ai_provider"); if (_pv) _pv.addEventListener("change", applyProvi
 /* ---------- init ---------- */
 load();
 loadAi();
+loadLineup();
+refreshLineupUI();
 // nastav aktivní tým + téma podle uloženého stavu
 document.querySelectorAll("#teamSwitch button").forEach(b => b.classList.toggle("active", b.dataset.team === state.team));
 applyTheme();
