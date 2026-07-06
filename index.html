@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-06-6" />
+<meta name="app-version" content="2026-07-06-7" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -826,10 +826,14 @@ $("lu_import").addEventListener("change", e => {
       let replace = true;
       if (curRoster().length) replace = confirm("Nahradit stávající kádr novým ze souboru?\n\nOK = nahradit, Zrušit = přidat ke stávajícím.");
       const mapped = players.map(p => ({ id: newId(), num: (p.num || "").toString(), name: p.name || "", photo: p.photo || null }));
-      if (replace) { state.roster[state.team] = mapped; const lu = curLineup(); lu.starters = []; lu.subs = []; }
-      else curRoster().push.apply(curRoster(), mapped);
+      if (replace) {
+        state.roster[state.team] = mapped;
+        const lu = curLineup();
+        lu.starters = mapped.slice(0, 11).map(p => p.id);   // rovnou postav základní 11 na hřiště
+        lu.subs = mapped.slice(11).map(p => p.id);           // zbytek na lavičku
+      } else curRoster().push.apply(curRoster(), mapped);
       saveLineup(); refreshLineupUI(); render();
-      alert("Načteno hráčů: " + mapped.length);
+      alert("Načteno hráčů: " + mapped.length + ". Základní sestava se předvyplnila – uprav si ji podle potřeby.");
     } catch (err) { alert("Soubor se nepovedlo načíst: " + err.message); }
     finally { e.target.value = ""; }
   };
