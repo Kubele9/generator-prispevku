@@ -536,10 +536,13 @@
     if (isReady(tok.photo)) {
       // VÝŘEZ HRÁČE (bez pozadí) + stín na zemi
       const img = tok.photo, aspect = img.naturalWidth / img.naturalHeight;
-      let imgH = d * 1.5, imgW = imgH * aspect;
-      const maxW = (slotW || d * 1.6) * 1.04;
-      if (imgW > maxW) { imgW = maxW; imgH = imgW / aspect; }
-      const bottom = cy + d * 0.30, top = bottom - imgH, left = cx - imgW / 2;
+      // šířku odvíjíme od místa v řadě (aby se výřezy nepřekrývaly ani nepřetékaly),
+      // výšku pak omezíme stropem, ať řady nekolidují svisle
+      let imgW = (slotW || d * 1.4) * 0.82;
+      let imgH = imgW / aspect;
+      const maxH = d * 1.32;
+      if (imgH > maxH) { imgH = maxH; imgW = imgH * aspect; }
+      const bottom = cy + d * 0.28, top = bottom - imgH, left = cx - imgW / 2;
       // stín na zemi
       c.save();
       c.fillStyle = "rgba(0,0,0,0.30)";
