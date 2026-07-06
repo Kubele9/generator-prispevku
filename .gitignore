@@ -8,6 +8,9 @@ _shots/
 # Kádry hráčů s fotkami – soukromé, nepatří do veřejného repa
 kadr-*.json
 
+# Pomocné python prostředí (odstranění pozadí fotek)
+.venv-bg/
+
 # Balíčky a systémové smetí
 *.zip
 .DS_Store

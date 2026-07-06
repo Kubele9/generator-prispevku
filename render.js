@@ -490,7 +490,39 @@
     c.restore();
   }
 
-  function drawPlayerToken(c, tok, cx, cy, d, colors) {
+  // jméno (příjmení) + volitelně číslo v tmavé pilulce; vrací spodní y
+  function drawNamePlate(c, tok, cx, topY, d, colors) {
+    const name = surname(tok.name);
+    if (!name) return topY;
+    const fs = Math.max(14, Math.min(d * 0.30, 27));
+    const ph = fs + 10;
+    const label = name.toUpperCase();
+    c.font = "800 " + fs + "px " + FONT;
+    const tw = c.measureText(label).width;
+    const hasNum = !!tok.num;
+    const numFs = fs * 0.92;
+    c.font = "800 " + numFs + "px " + FONT;
+    const numTxt = hasNum ? String(tok.num) : "";
+    const numW = hasNum ? Math.max(ph, c.measureText(numTxt).width + 14) : 0;
+    const pad = 12, gap = hasNum ? 8 : 0;
+    const totalW = numW + gap + tw + pad * 2;
+    const x0 = cx - totalW / 2;
+    // pozadí
+    c.fillStyle = "rgba(0,0,0,0.66)"; roundRect(c, x0, topY, totalW, ph, ph / 2); c.fill();
+    // číslo chip
+    if (hasNum) {
+      c.fillStyle = colors.primary; roundRect(c, x0, topY, numW, ph, ph / 2); c.fill();
+      c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = "800 " + numFs + "px " + FONT; c.fillText(numTxt, x0 + numW / 2, topY + ph / 2 + 1);
+    }
+    c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.font = "800 " + fs + "px " + FONT;
+    c.fillText(label, x0 + numW + gap + pad + tw / 2, topY + ph / 2 + 1);
+    c.textBaseline = "alphabetic";
+    return topY + ph;
+  }
+
+  function drawPlayerToken(c, tok, cx, cy, d, colors, slotW) {
     const r = d / 2;
     if (!tok) {
       c.save(); c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
@@ -500,43 +532,41 @@
       c.font = "800 " + (r * 0.9) + "px " + FONT; c.fillText("?", cx, cy + 1); c.restore();
       c.textBaseline = "alphabetic"; return;
     }
-    // bílý kroužek
+
+    if (isReady(tok.photo)) {
+      // VÝŘEZ HRÁČE (bez pozadí) + stín na zemi
+      const img = tok.photo, aspect = img.naturalWidth / img.naturalHeight;
+      let imgH = d * 1.5, imgW = imgH * aspect;
+      const maxW = (slotW || d * 1.6) * 1.04;
+      if (imgW > maxW) { imgW = maxW; imgH = imgW / aspect; }
+      const bottom = cy + d * 0.30, top = bottom - imgH, left = cx - imgW / 2;
+      // stín na zemi
+      c.save();
+      c.fillStyle = "rgba(0,0,0,0.30)";
+      c.beginPath(); c.ellipse(cx, bottom - d * 0.03, imgW * 0.40, d * 0.11, 0, 0, Math.PI * 2); c.fill();
+      c.restore();
+      // samotný výřez s jemným stínem
+      c.save();
+      c.shadowColor = "rgba(0,0,0,0.38)"; c.shadowBlur = d * 0.14; c.shadowOffsetY = 4;
+      c.drawImage(img, left, top, imgW, imgH);
+      c.restore();
+      // jmenovka (s číslem) pod výřezem
+      drawNamePlate(c, tok, cx, bottom + 5, d, colors);
+      return;
+    }
+
+    // BEZ FOTKY -> kolečko s iniciálou / číslem
     c.save(); c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.closePath();
     c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = d * 0.12; c.shadowOffsetY = 3;
     c.fillStyle = "#ffffff"; c.fill(); c.restore();
     const inner = r - Math.max(3, d * 0.055);
     c.save(); c.beginPath(); c.arc(cx, cy, inner, 0, Math.PI * 2); c.closePath(); c.clip();
-    if (isReady(tok.photo)) {
-      const img = tok.photo, s = Math.max((inner * 2) / img.naturalWidth, (inner * 2) / img.naturalHeight);
-      const dw = img.naturalWidth * s, dh = img.naturalHeight * s;
-      c.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
-    } else {
-      c.fillStyle = colors.primary; c.fillRect(cx - inner, cy - inner, inner * 2, inner * 2);
-      c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
-      const t = tok.num ? tok.num : (surname(tok.name)[0] || "?").toUpperCase();
-      c.font = "800 " + (inner * 0.95) + "px " + FONT; c.fillText(String(t), cx, cy);
-    }
+    c.fillStyle = colors.primary; c.fillRect(cx - inner, cy - inner, inner * 2, inner * 2);
+    c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
+    const t = tok.num ? tok.num : (surname(tok.name)[0] || "?").toUpperCase();
+    c.font = "800 " + (inner * 0.95) + "px " + FONT; c.fillText(String(t), cx, cy);
     c.restore();
-    // číslo (jen když je fotka – bez fotky je číslo už uprostřed kolečka)
-    if (tok.num && isReady(tok.photo)) {
-      const br = Math.max(13, d * 0.21), bx = cx + r * 0.72, by = cy + r * 0.72;
-      c.beginPath(); c.arc(bx, by, br, 0, Math.PI * 2); c.fillStyle = colors.primary; c.fill();
-      c.lineWidth = 2; c.strokeStyle = "rgba(255,255,255,0.95)"; c.stroke();
-      c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
-      c.font = "800 " + (br * 1.02) + "px " + FONT; c.fillText(String(tok.num), bx, by + 1);
-      c.textBaseline = "alphabetic";
-    }
-    // jméno (příjmení) v tmavé pilulce
-    const name = surname(tok.name);
-    if (name) {
-      const fs = Math.max(14, Math.min(d * 0.30, 27));
-      c.font = "800 " + fs + "px " + FONT;
-      const label = name.toUpperCase(), tw = c.measureText(label).width, pad = 10, ph = fs + 10;
-      const ny = cy + r + 7;
-      c.fillStyle = "rgba(0,0,0,0.62)"; roundRect(c, cx - tw / 2 - pad, ny, tw + pad * 2, ph, ph / 2); c.fill();
-      c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "middle";
-      c.fillText(label, cx, ny + ph / 2 + 1); c.textBaseline = "alphabetic";
-    }
+    drawNamePlate(c, tok, cx, cy + r + 7, d, colors);
   }
 
   function renderLineup(c, w, h, model) {
@@ -592,7 +622,8 @@
     function rowY(r) { return pitchTop + pitchH - (r + 0.5) * rowGap; }
     function placeRow(arr, r) {
       const k = arr.length; if (!k) return;
-      for (let i = 0; i < k; i++) { const px = inX + inW * ((i + 1) / (k + 1)); drawPlayerToken(c, arr[i], px, rowY(r), d, colors); }
+      const slotW = inW / (k + 1);
+      for (let i = 0; i < k; i++) { const px = inX + inW * ((i + 1) / (k + 1)); drawPlayerToken(c, arr[i], px, rowY(r), d, colors, slotW); }
     }
     placeRow([l.gk], 0);
     for (let li = 0; li < lines.length; li++) placeRow(lines[li], li + 1);

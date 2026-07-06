@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-06-8" />
+<meta name="app-version" content="2026-07-06-9" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -702,12 +702,12 @@ function newId() { return "p" + Date.now().toString(36) + Math.random().toString
 function resizePhoto(dataURL, size, cb) {
   const im = new Image();
   im.onload = () => {
-    const cv = document.createElement("canvas"); cv.width = size; cv.height = size;
-    const cx = cv.getContext("2d");
-    const r = Math.max(size / im.width, size / im.height);
-    const dw = im.width * r, dh = im.height * r;
-    cx.drawImage(im, (size - dw) / 2, (size - dh) / 2, dw, dh);
-    cb(cv.toDataURL("image/jpeg", 0.85));
+    // zachovej poměr stran i průhlednost (výřezy hráčů bez pozadí) -> PNG
+    const scale = Math.min(size / im.width, size / im.height, 1);
+    const w = Math.max(1, Math.round(im.width * scale)), h = Math.max(1, Math.round(im.height * scale));
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    cv.getContext("2d").drawImage(im, 0, 0, w, h);
+    cb(cv.toDataURL("image/png"));
   };
   im.src = dataURL;
 }
