@@ -5,6 +5,9 @@ cdp_inspect.py
 logo-club.png
 _shots/
 
+# Kádry hráčů s fotkami – soukromé, nepatří do veřejného repa
+kadr-*.json
+
 # Balíčky a systémové smetí
 *.zip
 .DS_Store

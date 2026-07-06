@@ -1,9 +1,10 @@
 /* Service worker – offline režim pro generátor příspěvků.
    Strategie: nejdřív síť (ať máš vždy aktuální verzi), při výpadku sáhne do cache. */
-const CACHE = "brumovice-generator-v3";
+const CACHE = "brumovice-generator-v5";
 const ASSETS = [
   "./",
   "./index.html",
+  "./nacist-hrace.html",
   "./render.js",
   "./logo-data.js",
   "./opponents-data.js",
