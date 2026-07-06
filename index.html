@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-06-1" />
+<meta name="app-version" content="2026-07-06-2" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -251,7 +251,8 @@
           </select>
         </div>
         <div id="ai_gemini_box">
-          <div class="field"><label>Google Gemini API klíč</label><input type="password" id="ai_gkey" placeholder="AIza..." autocomplete="off" /></div>
+          <div class="hint" style="margin-bottom:10px">✅ Když web běží na <b>Netlify s nastaveným klíčem na serveru</b>, AI funguje sama a <b>nemusíš tu nic vyplňovat</b> (na počítači i v mobilu).</div>
+          <div class="field"><label>Google Gemini API klíč (nepovinné – jen jako záloha / když web běží lokálně)</label><input type="password" id="ai_gkey" placeholder="AIza..." autocomplete="off" /></div>
           <div class="field"><label>Model</label><input type="text" id="ai_gmodel" value="gemini-2.5-flash" /></div>
           <div class="hint">Klíč získáš <b>zdarma</b> na <b>aistudio.google.com/apikey</b> – stačí Google účet, žádná platební karta. Uloží se jen v tomto prohlížeči.</div>
         </div>
@@ -737,6 +738,44 @@ function buildAiContext() {
   const a = m.announce;
   return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;
 }
+// Gemini: nejdřív přes serverovou funkci klubu (bez klíče, funguje všude),
+// jinak (nebo lokálně) přes vlastní klíč z Nastavení AI.
+async function generateGemini(sys, user) {
+  const model = val("ai_gmodel").trim() || "gemini-2.5-flash";
+  const personalKey = val("ai_gkey").trim();
+  let serverErr = null;
+  try {
+    const res = await fetch("/.netlify/functions/gemini", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ system: sys, user, model }),
+    });
+    if (res.ok) { const data = await res.json(); return (data.text || "").trim(); }
+    const data = await res.json().catch(() => ({}));
+    serverErr = data.error === "NA_SERVERU_CHYBI_KLIC"
+      ? "Na serveru zatím není nastavený klíč (v Netlify → Site configuration → Environment variables přidej GEMINI_API_KEY)."
+      : (data.error || ("Server vrátil chybu " + res.status));
+  } catch (e) {
+    serverErr = "AI přes server není dostupná (spuštěno mimo Netlify?).";
+  }
+  if (personalKey) return await generateGeminiDirect(sys, user, model, personalKey);
+  throw new Error(serverErr + "\n\nMůžeš také vložit vlastní Gemini klíč v části Nastavení AI (zdarma na aistudio.google.com/apikey).");
+}
+async function generateGeminiDirect(sys, user, model, key) {
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key);
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: sys }] },
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      generationConfig: { temperature: 0.8 },
+    }),
+  });
+  if (!res.ok) { const t = await res.text(); throw new Error("Gemini " + res.status + ": " + t.slice(0, 300)); }
+  const data = await res.json();
+  const cand = data.candidates && data.candidates[0];
+  const parts = cand && cand.content && cand.content.parts;
+  return (parts ? parts.map(p => p.text || "").join("") : "").trim();
+}
 $("ai_generate").addEventListener("click", async () => {
   const provider = val("ai_provider") || "gemini";
   const note = val("ai_note").trim();
@@ -764,24 +803,7 @@ $("ai_generate").addEventListener("click", async () => {
       const data = await res.json();
       out = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content || "").trim();
     } else {
-      const key = val("ai_gkey").trim();
-      if (!key) throw new Error("Vyplň Google Gemini API klíč v části Nastavení AI.\nZískáš ho zdarma na aistudio.google.com/apikey.");
-      const model = val("ai_gmodel").trim() || "gemini-2.5-flash";
-      const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(key);
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: sys }] },
-          contents: [{ role: "user", parts: [{ text: user }] }],
-          generationConfig: { temperature: 0.8 },
-        }),
-      });
-      if (!res.ok) { const t = await res.text(); throw new Error("Gemini " + res.status + ": " + t.slice(0, 300)); }
-      const data = await res.json();
-      const cand = data.candidates && data.candidates[0];
-      const parts = cand && cand.content && cand.content.parts;
-      out = (parts ? parts.map(p => p.text || "").join("") : "").trim();
+      out = await generateGemini(sys, user);
     }
     setVal("ai_output", out || "(prázdná odpověď)"); saveAi();
   } catch (e) {

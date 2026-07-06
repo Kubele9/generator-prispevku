@@ -1,0 +1,7 @@
+# Konfigurace Netlify – statický web + serverová funkce pro AI popisky.
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
