@@ -543,22 +543,40 @@
     const l = model.lineup || {}, colors = model.colors, tx = colors.text;
     const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
 
-    let y = isStory ? 140 : 60;
+    let y = isStory ? 140 : 56;
     y = drawTeamBadge(c, cx, y, model);
-    y += isStory ? 52 : 40;
+    y += isStory ? 28 : 22; // mezera pod odznakem MUŽI/DOROST
 
-    c.textAlign = "center"; c.textBaseline = "alphabetic"; c.fillStyle = tx;
+    c.textAlign = "center"; c.fillStyle = tx;
     const title = (l.title || "").toUpperCase();
-    if (title) { const ts = fitFont(c, title, w * 0.88, isStory ? 70 : 60, "900", 30); c.font = "900 " + ts + "px " + FONT; c.fillText(title, cx, y); y += (isStory ? 18 : 14); }
+    if (title) {
+      const ts = fitFont(c, title, w * 0.88, isStory ? 70 : 58, "900", 30);
+      c.textBaseline = "top"; c.font = "900 " + ts + "px " + FONT;
+      c.fillText(title, cx, y); y += ts + (isStory ? 12 : 9);
+    }
 
     const sub = [l.opp ? "vs " + l.opp : "", [l.date, l.time].filter(Boolean).join(" ")].filter(Boolean).join("  •  ");
-    if (sub) { c.fillStyle = colors.primary; c.font = "800 " + (isStory ? 36 : 30) + "px " + FONT; c.fillText(sub, cx, y + (isStory ? 34 : 28)); y += (isStory ? 44 : 36); }
+    if (sub) {
+      const ss = isStory ? 36 : 30;
+      c.textBaseline = "top"; c.fillStyle = colors.primary; c.font = "800 " + ss + "px " + FONT;
+      c.fillText(sub, cx, y); y += ss;
+    }
+    c.textBaseline = "alphabetic";
 
-    // rozvržení: hřiště nahoře, náhradníci dole
+    // rozvržení: hřiště nahoře, náhradníci dole – výšku náhradníků spočítáme dopředu
     const hasSubs = (l.subs || []).length > 0, hasCoach = !!(l.coach || "").trim();
-    const subsH = (hasSubs ? (isStory ? 118 : 96) : 0) + (hasCoach ? (isStory ? 40 : 34) : 0);
+    const subFs = isStory ? 28 : 24, subLabelH = isStory ? 42 : 36, coachH = isStory ? 40 : 34;
+    let subLineArr = [];
+    if (hasSubs) {
+      c.font = "600 " + subFs + "px " + FONT;
+      const names = (l.subs || []).map(p => (p.num ? p.num + " " : "") + surname(p.name)).join("   •   ");
+      subLineArr = wrapLines(c, names, w * 0.9).slice(0, 2);
+    }
+    const subsH = (hasSubs ? (subLabelH + subLineArr.length * (subFs + 8)) : 0) + (hasCoach ? coachH : 0);
+    const footerReserve = (isStory ? 96 : 58) + 26;
+    const bottomGap = isStory ? 30 : 22;
     const pitchTop = y + (isStory ? 30 : 20);
-    const pitchBottom = h - (isStory ? 120 : 78) - subsH - (subsH ? (isStory ? 20 : 14) : 0);
+    const pitchBottom = h - footerReserve - subsH - (subsH ? bottomGap : 0);
     const pitchLeft = w * 0.05, pitchW = w * 0.90, pitchH = pitchBottom - pitchTop;
     drawPitch(c, pitchLeft, pitchTop, pitchW, pitchH, colors);
 
@@ -580,16 +598,16 @@
     for (let li = 0; li < lines.length; li++) placeRow(lines[li], li + 1);
 
     // náhradníci + trenér
-    let sy = pitchBottom + (subsH ? (isStory ? 60 : 48) : 0);
-    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    let sy = pitchBottom + bottomGap;
+    c.textAlign = "center"; c.textBaseline = "top";
     if (hasSubs) {
       c.fillStyle = colors.primary; c.font = "800 " + (isStory ? 30 : 26) + "px " + FONT;
-      c.fillText("NÁHRADNÍCI", cx, sy); sy += (isStory ? 40 : 34);
-      const fs = isStory ? 28 : 24; c.fillStyle = tx; c.font = "600 " + fs + "px " + FONT;
-      const names = (l.subs || []).map(p => (p.num ? p.num + " " : "") + surname(p.name)).join("   •   ");
-      for (const ln of wrapLines(c, names, w * 0.9).slice(0, 2)) { c.fillText(ln, cx, sy); sy += fs + 8; }
+      c.fillText("NÁHRADNÍCI", cx, sy); sy += subLabelH;
+      c.fillStyle = tx; c.font = "600 " + subFs + "px " + FONT;
+      for (const ln of subLineArr) { c.fillText(ln, cx, sy); sy += subFs + 8; }
     }
-    if (hasCoach) { c.fillStyle = tx; c.globalAlpha = 0.82; c.font = "700 " + (isStory ? 26 : 22) + "px " + FONT; c.fillText("Trenér: " + l.coach.trim(), cx, sy + 4); c.globalAlpha = 1; }
+    if (hasCoach) { c.fillStyle = tx; c.globalAlpha = 0.82; c.font = "700 " + (isStory ? 26 : 22) + "px " + FONT; c.fillText("Trenér: " + l.coach.trim(), cx, sy + 2); c.globalAlpha = 1; }
+    c.textBaseline = "alphabetic";
 
     drawFooter(c, w, h, model);
   }
