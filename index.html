@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-20" />
+<meta name="app-version" content="2026-07-08-21" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -951,7 +951,8 @@ $("lu_photos").addEventListener("change", e => {
       const d = JSON.parse(rd.result);
       // podpora dvou formátů: { "Jméno": "data:..." }  nebo  { players:[{name,photo}] }
       const map = {};
-      const norm = s => (s || "").toString().trim().toLowerCase();
+      // odolné párování: bez diakritiky, jen písmena/čísla, nezávislé na pořadí slov
+      const norm = s => (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean).sort().join(" ");
       if (Array.isArray(d.players)) d.players.forEach(p => { if (p && p.name && p.photo) map[norm(p.name)] = p.photo; });
       else Object.keys(d).forEach(k => { if (typeof d[k] === "string") map[norm(k)] = d[k]; });
       const keys = Object.keys(map);
