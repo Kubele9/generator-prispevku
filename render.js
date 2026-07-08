@@ -712,10 +712,10 @@
       const b = cutoutBounds(img);
       const fw = img.naturalWidth, fh = img.naturalHeight;
       const headW = Math.max(1, b.headW || b.w * 0.6);
-      const scale = (0.58 * d) / headW; // šířka hlavy ~58 % průměru kolečka
+      const scale = (0.52 * d) / headW; // šířka hlavy ~52 % průměru kolečka
       const dw = fw * scale, dh = fh * scale;
       // svisle: vršek vlasů necháme kousek pod horním okrajem (headroom → vlasy zůstanou)
-      let dy = (cy - d / 2 + 0.12 * d) - b.y * scale;
+      let dy = (cy - d / 2 + 0.15 * d) - b.y * scale;
       // vodorovně: střed na hlavu, a pokud je výřez dost široký, dorovnat okraje
       let dx = cx - b.headX * scale;
       const oL = b.x * scale, oR = (b.x + b.w) * scale;
