@@ -491,21 +491,28 @@
   }
 
   // jméno (příjmení) + volitelně číslo v tmavé pilulce; vrací spodní y
-  function drawNamePlate(c, tok, cx, topY, d, colors) {
+  function drawNamePlate(c, tok, cx, topY, d, colors, maxW) {
     const name = surname(tok.name);
     if (!name) return topY;
-    const fs = Math.max(14, Math.min(d * 0.30, 27));
-    const ph = fs + 10;
     const label = name.toUpperCase();
-    c.font = "800 " + fs + "px " + FONT;
-    const tw = c.measureText(label).width;
     const hasNum = !!tok.num;
-    const numFs = fs * 0.92;
-    c.font = "800 " + numFs + "px " + FONT;
     const numTxt = hasNum ? String(tok.num) : "";
-    const numW = hasNum ? Math.max(ph, c.measureText(numTxt).width + 14) : 0;
-    const pad = 12, gap = hasNum ? 8 : 0;
-    const totalW = numW + gap + tw + pad * 2;
+    // rozměry pro dané písmo
+    function measure(fs) {
+      c.font = "800 " + fs + "px " + FONT;
+      const tw = c.measureText(label).width;
+      const numFs = fs * 0.92, ph = fs + 8;
+      c.font = "800 " + numFs + "px " + FONT;
+      const numW = hasNum ? Math.max(ph, c.measureText(numTxt).width + 14) : 0;
+      const pad = 12, gap = hasNum ? 8 : 0;
+      return { fs, tw, numFs, ph, numW, pad, gap, total: numW + gap + tw + pad * 2 };
+    }
+    let fs = Math.max(12, Math.min(d * 0.23, 21));
+    let mm = measure(fs);
+    // když se jmenovka nevejde do svého místa v řadě, písmo zmenši
+    if (maxW && mm.total > maxW) { fs = Math.max(10, fs * (maxW / mm.total)); mm = measure(fs); }
+    const { tw, numFs, ph, numW, pad, gap } = mm;
+    const totalW = mm.total;
     const x0 = cx - totalW / 2;
     // pozadí
     c.fillStyle = "rgba(0,0,0,0.66)"; roundRect(c, x0, topY, totalW, ph, ph / 2); c.fill();
@@ -553,8 +560,8 @@
       c.shadowColor = "rgba(0,0,0,0.38)"; c.shadowBlur = d * 0.14; c.shadowOffsetY = 4;
       c.drawImage(img, left, top, imgW, imgH);
       c.restore();
-      // jmenovka (s číslem) pod výřezem
-      drawNamePlate(c, tok, cx, bottom + 5, d, colors);
+      // jmenovka (s číslem) pod výřezem – vejde se do svého místa v řadě
+      drawNamePlate(c, tok, cx, bottom + 5, d, colors, (slotW || d * 1.4) * 0.96);
       return;
     }
 
@@ -569,7 +576,7 @@
     const t = tok.num ? tok.num : (surname(tok.name)[0] || "?").toUpperCase();
     c.font = "800 " + (inner * 0.95) + "px " + FONT; c.fillText(String(t), cx, cy);
     c.restore();
-    drawNamePlate(c, tok, cx, cy + r + 7, d, colors);
+    drawNamePlate(c, tok, cx, cy + r + 7, d, colors, (slotW || d * 1.4) * 0.96);
   }
 
   function renderLineup(c, w, h, model) {
