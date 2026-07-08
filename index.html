@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-13" />
+<meta name="app-version" content="2026-07-08-14" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -71,6 +71,8 @@
   .lu-prow .lu-move button { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 20px; line-height: 1; font-size: 10px; cursor: pointer; padding: 0; }
   .lu-prow .lu-move button:disabled { opacity: .3; cursor: default; }
   .lu-prow .lu-thumb { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--panel-2); border: 1px solid var(--border); cursor: pointer; display: block; }
+  .lu-prow .lu-fy { flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; }
+  .lu-prow .lu-fy button { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 20px; line-height: 1; font-size: 12px; cursor: pointer; padding: 0; }
   .lu-prow .lu-num { flex: 0 0 48px; }
   .lu-prow .lu-pos { flex: 0 0 108px; }
   .lu-prow .lu-year { flex: 0 0 58px; }
@@ -598,7 +600,7 @@ function migratePlayerYear(p) {
 }
 function buildRosterPoster() {
   const players = curRoster().slice().map(p => ({
-    name: p.name, num: p.num, birthYear: p.birthYear || "", pos: p.pos || "", photo: getImg(p.photo),
+    name: p.name, num: p.num, birthYear: p.birthYear || "", pos: p.pos || "", photo: getImg(p.photo), photoY: p.photoY || 0,
   }));
   const staff = curStaff().slice().map(s => ({ name: s.name, role: s.role || "" }));
   return { title: val("rd_title"), season: val("rd_season"), players, staff };
@@ -794,6 +796,12 @@ function renderRoster() {
     const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.style.display = "none";
     img.addEventListener("click", () => file.click());
     file.addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => resizePhoto(rd.result, 320, data => { p.photo = data; saveLineup(); renderRoster(); render(); }); rd.readAsDataURL(f); });
+    const fy = document.createElement("div"); fy.className = "lu-fy";
+    const fyUp = document.createElement("button"); fyUp.type = "button"; fyUp.textContent = "⤒"; fyUp.title = "Fotku výš v kolečku";
+    const fyDn = document.createElement("button"); fyDn.type = "button"; fyDn.textContent = "⤓"; fyDn.title = "Fotku níž v kolečku";
+    fyUp.addEventListener("click", () => { p.photoY = Math.max(-0.4, Math.round(((p.photoY || 0) - 0.05) * 100) / 100); saveLineup(); render(); });
+    fyDn.addEventListener("click", () => { p.photoY = Math.min(0.4, Math.round(((p.photoY || 0) + 0.05) * 100) / 100); saveLineup(); render(); });
+    fy.append(fyUp, fyDn);
     const num = document.createElement("input"); num.type = "text"; num.className = "lu-num"; num.value = p.num || ""; num.placeholder = "#"; num.maxLength = 3;
     num.addEventListener("input", () => { p.num = num.value.trim(); saveLineup(); refreshSlotOptions(); renderSubs(); render(); });
     const pos = document.createElement("select"); pos.className = "lu-pos";
@@ -811,7 +819,7 @@ function renderRoster() {
       lu.subs = (lu.subs || []).filter(id => id !== p.id);
       saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render();
     });
-    row.append(mv, img, file, num, pos, year, name, del);
+    row.append(mv, img, fy, file, num, pos, year, name, del);
     box.appendChild(row);
   });
 }
@@ -917,7 +925,7 @@ $("lu_formation").addEventListener("change", () => { curLineup().formation = $("
 ["rd_title", "rd_season"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
 $("lu_export").addEventListener("click", () => {
   const data = { app: "brumovice-generator", type: "roster", team: state.team,
-    players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo, birthYear: p.birthYear || "", pos: p.pos || "" })),
+    players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo, birthYear: p.birthYear || "", pos: p.pos || "", photoY: p.photoY || 0 })),
     staff: curStaff().map(s => ({ name: s.name, role: s.role || "" })),
   };
   if (!data.players.length) { alert("Kádr je prázdný – není co zálohovat."); return; }
@@ -937,7 +945,7 @@ $("lu_import").addEventListener("change", e => {
       if (curRoster().length) replace = confirm("Nahradit stávající kádr novým ze souboru?\n\nOK = nahradit, Zrušit = přidat ke stávajícím.");
       const mapped = players.map(p => {
         const m = migratePlayerYear({ num: (p.num || "").toString(), name: p.name || "", photo: p.photo || null, birthYear: (p.birthYear || p.age || "").toString(), pos: p.pos || "" });
-        return { id: newId(), num: m.num, name: m.name, photo: m.photo, birthYear: m.birthYear || "", pos: m.pos };
+        return { id: newId(), num: m.num, name: m.name, photo: m.photo, birthYear: m.birthYear || "", pos: m.pos, photoY: Number(p.photoY) || 0 };
       });
       const staff = (d.staff || []).filter(s => s && s.name).map(s => ({ id: newId(), name: s.name || "", role: s.role || "" }));
       if (replace) {

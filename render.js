@@ -702,7 +702,7 @@
   }
 
   /* ---------- KÁDR SEZÓNY (tabulka hráčů po sekcích) ---------- */
-  function drawAvatar(c, img, cx, cy, d, colors) {
+  function drawAvatar(c, img, cx, cy, d, colors, offY) {
     c.save();
     c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2);
     c.fillStyle = "rgba(0,0,0,0.06)"; c.fill();
@@ -725,6 +725,7 @@
       if (dx + oR < cx + d / 2) dx = cx + d / 2 - oR;
       if (dy + oT > cy - d / 2) dy = cy - d / 2 - oT;
       if (dy + oB < cy + d / 2) dy = cy + d / 2 - oB;
+      if (offY) dy += offY * d; // ruční svislý posun fotky (+ dolů, − nahoru)
       c.drawImage(img, dx, dy, dw, dh);
       c.restore();
     } else {
@@ -814,7 +815,7 @@
       if (alt) { c.fillStyle = "rgba(0,0,0,0.04)"; roundRect(c, x, ry, wdt, rowH, rowH * 0.16); c.fill(); }
       const d = rowH * 0.84;
       const acx = x + rowH * 0.14 + d / 2, acy = ry + rowH / 2;
-      drawAvatar(c, p.photo, acx, acy, d, colors);
+      drawAvatar(c, p.photo, acx, acy, d, colors, p.photoY);
       const nameX = acx + d / 2 + rowH * 0.3;
       const yearText = p.birthYear ? "r. " + p.birthYear : "";
       c.font = "700 " + (rowH * 0.34) + "px " + FONT;
