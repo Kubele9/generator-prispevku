@@ -751,19 +751,20 @@
       const b = cutoutBounds(img);
       const fw = img.naturalWidth, fh = img.naturalHeight;
       const headW = Math.max(1, b.headW || b.w * 0.6);
-      const scale = (0.52 * d) / headW; // šířka hlavy ~52 % průměru kolečka
+      const scale = (0.66 * d) / headW; // hlava vyplní ~66 % šířky kolečka
       const dw = fw * scale, dh = fh * scale;
-      // svisle: vršek vlasů necháme kousek pod horním okrajem (headroom → vlasy zůstanou)
-      let dy = (cy - d / 2 + 0.15 * d) - b.y * scale;
-      // vodorovně: střed na hlavu, a pokud je výřez dost široký, dorovnat okraje
+      const faceCy = b.y + 0.70 * headW; // odhad svislého středu obličeje z šířky hlavy
+      // obličej lehce nad středem, hlava vyplní kolečko (seříznuté temeno splyne s okrajem)
       let dx = cx - b.headX * scale;
-      const oL = b.x * scale, oR = (b.x + b.w) * scale;
+      let dy = (cy - 0.04 * d) - faceCy * scale;
+      const oL = b.x * scale, oR = (b.x + b.w) * scale, oB = (b.y + b.h) * scale;
       if (oR - oL >= d) {
         if (dx + oL > cx - d / 2) dx = cx - d / 2 - oL;
         if (dx + oR < cx + d / 2) dx = cx + d / 2 - oR;
       } else {
         dx = cx - (oL + oR) / 2; // úzký výřez → vycentrovat
       }
+      if (dy + oB < cy + d / 2) dy = cy + d / 2 - oB; // dole bez prázdného okraje
       if (offY) dy += offY * d; // ruční svislý posun fotky (+ dolů, − nahoru)
       c.drawImage(cleanCutout(img), dx, dy, dw, dh);
       c.restore();
