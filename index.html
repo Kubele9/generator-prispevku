@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-19" />
+<meta name="app-version" content="2026-07-08-20" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -251,7 +251,8 @@
             <button type="button" class="file-btn" id="lu_export" style="flex:1">⬇ Zálohovat kádr</button>
             <label class="file-btn" style="flex:1; text-align:center; cursor:pointer">⬆ Načíst kádr<input type="file" id="lu_import" accept="application/json,.json" hidden /></label>
           </div>
-          <div class="mini">Záloha uloží celý kádr (i s fotkami) do souboru – hodí se na přenos mezi mobilem a počítačem, nebo pro import hráčů z fotbal.cz.</div>
+          <label class="file-btn" style="display:block; text-align:center; cursor:pointer; margin-top:8px">🖼️ Aktualizovat jen fotky (podle jména)<input type="file" id="lu_photos" accept="application/json,.json" hidden /></label>
+          <div class="mini">Záloha uloží celý kádr (i s fotkami) do souboru – hodí se na přenos mezi mobilem a počítačem, nebo pro import hráčů z fotbal.cz. „Aktualizovat jen fotky" vymění fotky podle jména a <b>nechá posty, ročníky i pořadí</b>.</div>
           <a href="nacist-hrace.html" target="_blank" rel="noopener" class="file-btn" style="display:block; text-align:center; margin-top:8px; text-decoration:none">⚽ Načíst hráče s fotkami z fotbal.cz →</a>
           <div class="mini">Otevře návod, jak hromadně stáhnout jména a fotky hráčů z veřejné databáze FAČR (nejlépe na počítači), a pak je sem naimportovat.</div>
         </div>
@@ -941,6 +942,28 @@ $("lu_export").addEventListener("click", () => {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
   a.download = "kadr-" + state.team + ".json"; a.click(); URL.revokeObjectURL(a.href);
+});
+$("lu_photos").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const d = JSON.parse(rd.result);
+      // podpora dvou formátů: { "Jméno": "data:..." }  nebo  { players:[{name,photo}] }
+      const map = {};
+      const norm = s => (s || "").toString().trim().toLowerCase();
+      if (Array.isArray(d.players)) d.players.forEach(p => { if (p && p.name && p.photo) map[norm(p.name)] = p.photo; });
+      else Object.keys(d).forEach(k => { if (typeof d[k] === "string") map[norm(k)] = d[k]; });
+      const keys = Object.keys(map);
+      if (!keys.length) { alert("V souboru nejsou žádné fotky."); return; }
+      let updated = 0, missing = [];
+      curRoster().forEach(p => { const ph = map[norm(p.name)]; if (ph) { p.photo = ph; updated++; } else if (p.name) missing.push(p.name); });
+      saveLineup(); renderRoster(); render();
+      alert("Aktualizováno fotek: " + updated + (missing.length ? "\nBez shody jména: " + missing.join(", ") : "") + "\n\nPosty, ročníky i pořadí zůstaly beze změny.");
+    } catch (err) { alert("Soubor se nepovedlo načíst: " + err.message); }
+    e.target.value = "";
+  };
+  rd.readAsText(f);
 });
 $("lu_import").addEventListener("change", e => {
   const f = e.target.files[0]; if (!f) return;
