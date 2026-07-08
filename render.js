@@ -58,7 +58,7 @@
     const key = img.src || String(img);
     if (cutoutCache[key]) return cutoutCache[key];
     const w = img.naturalWidth, h = img.naturalHeight;
-    const fallback = { x: 0, y: 0, w: w || 1, h: h || 1, headX: (w || 1) / 2 };
+    const fallback = { x: 0, y: 0, w: w || 1, h: h || 1, headX: (w || 1) / 2, headW: (w || 1) * 0.6 };
     if (!w || !h) { cutoutCache[key] = fallback; return fallback; }
     const cv = document.createElement("canvas");
     cv.width = w; cv.height = h;
@@ -79,7 +79,7 @@
     } catch (e) { cutoutCache[key] = fallback; return fallback; }
     if (!found) { cutoutCache[key] = fallback; return fallback; }
     // vodorovný střed hlavy = střed neprůhledných pixelů v horním pásu obrysu
-    const bandBottom = minY + Math.max(1, Math.round((maxY - minY + 1) * 0.34));
+    const bandBottom = minY + Math.max(1, Math.round((maxY - minY + 1) * 0.28));
     let hMinX = w, hMaxX = 0, hFound = false;
     try {
       const data2 = cx.getImageData(0, 0, w, h).data;
@@ -90,7 +90,8 @@
       }
     } catch (e) { hFound = false; }
     const headX = hFound ? (hMinX + hMaxX) / 2 : (minX + maxX) / 2;
-    const b = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1, headX: headX };
+    const headW = hFound ? (hMaxX - hMinX + 1) : (maxX - minX + 1);
+    const b = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1, headX: headX, headW: headW };
     cutoutCache[key] = b; return b;
   }
 
@@ -709,14 +710,22 @@
       c.save();
       c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2); c.clip();
       const b = cutoutBounds(img);
-      const scale = Math.max(d / b.w, d / b.h) * 1.02; // cover
-      const dw = b.w * scale, dh = b.h * scale;
-      let dx = cx - ((b.headX - b.x) * scale); // vycentrovat podle hlavy
-      // pojistka, aby výřez pokryl celé kolečko (nevznikla prázdná mezera po straně)
-      if (dx > cx - d / 2) dx = cx - d / 2;
-      if (dx + dw < cx + d / 2) dx = cx + d / 2 - dw;
-      const dy = (cy - d / 2) - d * 0.06; // horní ukotvení – hlava nahoře
-      c.drawImage(img, b.x, b.y, b.w, b.h, dx, dy, dw, dh);
+      const fw = img.naturalWidth, fh = img.naturalHeight;
+      const coverScale = Math.max(d / b.w, d / b.h);
+      const headW = Math.max(1, b.headW || b.w * 0.6);
+      const headScale = (0.60 * d) / headW; // hlava ~60 % průměru kolečka
+      const scale = Math.min(Math.max(coverScale, headScale), coverScale * 1.9);
+      const dw = fw * scale, dh = fh * scale;
+      const faceCy = b.y + headW * 0.62; // svislý střed obličeje (odhad z výšky hlavy)
+      let dx = cx - b.headX * scale;      // vodorovně na střed hlavy
+      let dy = (cy - 0.05 * d) - faceCy * scale; // obličej lehce nad středem
+      // pojistky, aby výřez pokryl celé kolečko (bez prázdných okrajů)
+      const oL = b.x * scale, oR = (b.x + b.w) * scale, oT = b.y * scale, oB = (b.y + b.h) * scale;
+      if (dx + oL > cx - d / 2) dx = cx - d / 2 - oL;
+      if (dx + oR < cx + d / 2) dx = cx + d / 2 - oR;
+      if (dy + oT > cy - d / 2) dy = cy - d / 2 - oT;
+      if (dy + oB < cy + d / 2) dy = cy + d / 2 - oB;
+      c.drawImage(img, dx, dy, dw, dh);
       c.restore();
     } else {
       c.fillStyle = colors.primary; c.fill();
