@@ -859,17 +859,19 @@
       const nameX = acx + d / 2 + rowH * 0.3;
       const yearText = p.birthYear ? "r. " + p.birthYear : "";
       c.font = "700 " + (rowH * 0.34) + "px " + FONT;
-      const yearW = yearText ? c.measureText(yearText).width : 0;
-      const nameMaxW = (x + wdt) - nameX - yearW - rowH * 0.6;
+      // pevná šířka sloupce ročníků, ať jsou "r." zarovnané pod sebou (číslice nejsou stejně široké)
+      const yearColW = yearText ? c.measureText("r. 0000").width : 0;
+      const yearX = x + wdt - rowH * 0.3 - yearColW; // levý okraj sloupce ročníků
+      const nameMaxW = (yearText ? yearX - rowH * 0.4 : x + wdt - rowH * 0.3) - nameX;
       let nm = (p.num ? p.num + "  " : "") + (p.name || "");
       let nfs = rowH * 0.42; c.font = "800 " + nfs + "px " + FONT;
       while (c.measureText(nm).width > nameMaxW && nfs > rowH * 0.24) { nfs -= 1; c.font = "800 " + nfs + "px " + FONT; }
       c.textAlign = "left"; c.textBaseline = "middle"; c.fillStyle = tx;
       c.fillText(nm, nameX, acy + 1);
       if (yearText) {
-        c.textAlign = "right"; c.fillStyle = tx; c.globalAlpha = 0.6;
+        c.textAlign = "left"; c.fillStyle = tx; c.globalAlpha = 0.6;
         c.font = "700 " + (rowH * 0.34) + "px " + FONT;
-        c.fillText(yearText, x + wdt - rowH * 0.3, acy + 1); c.globalAlpha = 1;
+        c.fillText(yearText, yearX, acy + 1); c.globalAlpha = 1;
       }
     }
 
