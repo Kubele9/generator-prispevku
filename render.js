@@ -51,6 +51,46 @@
   function pillTextColor(hex) { return lum(hex) > 0.62 ? "#111111" : "#ffffff"; }
 
   function isReady(img) { return img && img.complete && img.naturalWidth; }
+
+  // obrys neprůhledných pixelů výřezu – sjednotí velikost i když PNG má různé okraje
+  const cutoutCache = {};
+  function cutoutBounds(img) {
+    const key = img.src || String(img);
+    if (cutoutCache[key]) return cutoutCache[key];
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const fallback = { x: 0, y: 0, w: w || 1, h: h || 1 };
+    if (!w || !h) { cutoutCache[key] = fallback; return fallback; }
+    const cv = document.createElement("canvas");
+    cv.width = w; cv.height = h;
+    const cx = cv.getContext("2d");
+    cx.drawImage(img, 0, 0);
+    let minX = w, minY = h, maxX = 0, maxY = 0, found = false;
+    try {
+      const data = cx.getImageData(0, 0, w, h).data;
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          if (data[(y * w + x) * 4 + 3] > 24) {
+            found = true;
+            if (x < minX) minX = x; if (x > maxX) maxX = x;
+            if (y < minY) minY = y; if (y > maxY) maxY = y;
+          }
+        }
+      }
+    } catch (e) { cutoutCache[key] = fallback; return fallback; }
+    if (!found) { cutoutCache[key] = fallback; return fallback; }
+    const b = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    cutoutCache[key] = b; return b;
+  }
+
+  function fitCutout(img, slotW, d) {
+    const b = cutoutBounds(img);
+    const maxW = (slotW || d * 1.4) * 0.78;
+    const targetH = d * 1.08; // stejná výška postavy pro všechny
+    let dispH = targetH, dispW = targetH * (b.w / b.h);
+    if (dispW > maxW) { dispW = maxW; dispH = maxW * (b.h / b.w); }
+    return { b, dispW, dispH };
+  }
+
   function drawImageContain(c, img, cx, cy, size) {
     const ratio = img.naturalWidth / img.naturalHeight;
     let w = size, h = size;
@@ -541,24 +581,19 @@
     }
 
     if (isReady(tok.photo)) {
-      // VÝŘEZ HRÁČE (bez pozadí) + stín na zemi
-      const img = tok.photo, aspect = img.naturalWidth / img.naturalHeight;
-      // šířku odvíjíme od místa v řadě (aby se výřezy nepřekrývaly ani nepřetékaly),
-      // výšku pak omezíme stropem, ať řady nekolidují svisle
-      let imgW = (slotW || d * 1.4) * 0.82;
-      let imgH = imgW / aspect;
-      const maxH = d * 1.32;
-      if (imgH > maxH) { imgH = maxH; imgW = imgH * aspect; }
-      const bottom = cy + d * 0.28, top = bottom - imgH, left = cx - imgW / 2;
+      // VÝŘEZ HRÁČE (bez pozadí) – sjednocená velikost podle obsahu, ne celého PNG
+      const img = tok.photo;
+      const { b, dispW, dispH } = fitCutout(img, slotW, d);
+      const bottom = cy + d * 0.28, top = bottom - dispH, left = cx - dispW / 2;
       // stín na zemi
       c.save();
       c.fillStyle = "rgba(0,0,0,0.30)";
-      c.beginPath(); c.ellipse(cx, bottom - d * 0.03, imgW * 0.40, d * 0.11, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(cx, bottom - d * 0.03, dispW * 0.40, d * 0.11, 0, 0, Math.PI * 2); c.fill();
       c.restore();
       // samotný výřez s jemným stínem
       c.save();
       c.shadowColor = "rgba(0,0,0,0.38)"; c.shadowBlur = d * 0.14; c.shadowOffsetY = 4;
-      c.drawImage(img, left, top, imgW, imgH);
+      c.drawImage(img, b.x, b.y, b.w, b.h, left, top, dispW, dispH);
       c.restore();
       // jmenovka (s číslem) pod výřezem – vejde se do svého místa v řadě
       drawNamePlate(c, tok, cx, bottom + 5, d, colors, (slotW || d * 1.4) * 0.96);
