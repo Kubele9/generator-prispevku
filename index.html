@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-3" />
+<meta name="app-version" content="2026-07-08-6" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -66,11 +66,16 @@
   .lu-subs { display: flex; flex-wrap: wrap; gap: 8px; }
   .lu-subs label { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; font-weight: 600; }
   .lu-subs input { width: auto; }
-  .lu-prow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .lu-prow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
   .lu-prow .lu-thumb { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--panel-2); border: 1px solid var(--border); cursor: pointer; display: block; }
   .lu-prow .lu-num { flex: 0 0 48px; }
-  .lu-prow .lu-name { flex: 1; }
+  .lu-prow .lu-pos { flex: 0 0 108px; }
+  .lu-prow .lu-year { flex: 0 0 58px; }
+  .lu-prow .lu-name { flex: 1; min-width: 120px; }
   .lu-prow .lu-del { flex: 0 0 auto; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .rd-staff-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .rd-staff-row input { flex: 1; }
+  .rd-staff-row .lu-del { flex: 0 0 auto; }
   .lu-empty { color: var(--muted); font-size: 13px; padding: 6px 0 10px; }
   .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .seg { display: flex; gap: 6px; }
@@ -251,12 +256,17 @@
     <!-- KÁDR SEZÓNY -->
     <div class="tpl" data-tpl="roster" style="display:none">
       <div class="field"><label>Nadpis</label><input type="text" id="rd_title" value="Kádr sezóny" /></div>
-      <div class="field row">
-        <div><label>Sezóna</label><input type="text" id="rd_season" value="2026/2027" /></div>
-        <div><label>Trenér (nepovinné)</label><input type="text" id="rd_coach" value="" placeholder="Jméno trenéra" /></div>
-      </div>
+      <div class="field"><label>Sezóna</label><input type="text" id="rd_season" value="2026/2027" /></div>
       <div class="mini" id="rd_count">V kádru: 0 hráčů</div>
-      <div class="hint">Zobrazí <b>všechny hráče</b> z kádru (stejný jako v sekci Sestava), seřazené podle čísla dresu. Kádr spravuješ v <b>Sestava → Kádr týmu</b> – stačí jednou naimportovat a používá se i tady. Pro sociální sítě je ideální <b>Story</b> (více hráčů) nebo <b>Feed</b>.</div>
+      <details open>
+        <summary>Realizační tým (bez fotek)</summary>
+        <div style="margin-top:10px">
+          <div class="hint" style="margin-bottom:8px">Jen jméno a pozice – např. Vedoucí týmu, Trenér. Věk se u realizačního týmu nezobrazuje.</div>
+          <div id="rd_staff"></div>
+          <button type="button" class="file-btn" id="rd_add_staff" style="width:100%; margin-top:6px">➕ Přidat do realizačního týmu</button>
+        </div>
+      </details>
+      <div class="hint" style="margin-top:10px">Hráče spravuješ v <b>Sestava → Kádr týmu</b> (fotky, číslo, post, ročník narození). Tady se zobrazí rozdělení: brankáři, obránci, záložníci, útočníci + realizační tým. Ideální formát: <b>Story</b>.</div>
     </div>
 
     <!-- ÚVODNÍ FOTO (FB cover) -->
@@ -440,6 +450,10 @@ const FORMATIONS = {
   "4-4-2": [4,4,2], "4-3-3": [4,3,3], "4-2-3-1": [4,2,3,1], "4-1-4-1": [4,1,4,1],
   "4-5-1": [4,5,1], "3-5-2": [3,5,2], "3-4-3": [3,4,3], "5-3-2": [5,3,2],
 };
+const POS_OPTS = [
+  { v: "", l: "— post —" }, { v: "gk", l: "Brankář" }, { v: "def", l: "Obránce" },
+  { v: "mid", l: "Záložník" }, { v: "fwd", l: "Útočník" },
+];
 
 const state = {
   tpl: "result", format: "square", side: "home",
@@ -451,7 +465,8 @@ const state = {
   coverPos: "left", coverOffsetY: 0.5, coverBg: "photo",
   schTime: true, venueTouched: false,
   libs: { muzi: {}, dorost: {} }, // team -> { name -> dataURL|null }
-  roster: { muzi: [], dorost: [] }, // team -> [ {id, num, name, photo} ]
+  roster: { muzi: [], dorost: [] }, // team -> [ {id, num, name, photo, birthYear, pos} ]
+  staff: { muzi: [], dorost: [] }, // team -> [ {id, name, role} ]
   lineup: { // team -> sestava
     muzi:   { formation: "4-4-2", starters: [], subs: [] },
     dorost: { formation: "4-4-2", starters: [], subs: [] },
@@ -546,6 +561,7 @@ function buildSchedule() {
 
 /* ---------- sestava (lineup) ---------- */
 function curRoster() { if (!state.roster[state.team]) state.roster[state.team] = []; return state.roster[state.team]; }
+function curStaff() { if (!state.staff[state.team]) state.staff[state.team] = []; return state.staff[state.team]; }
 function curLineup() {
   if (!state.lineup[state.team]) state.lineup[state.team] = { formation: "4-4-2", starters: [], subs: [] };
   return state.lineup[state.team];
@@ -565,15 +581,31 @@ function buildLineup() {
     formation: curLineup().formation, gk, lines, subs,
   };
 }
+function sortPlayers(a, b) {
+  const na = parseInt(a.num, 10), nb = parseInt(b.num, 10);
+  if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+  if (!isNaN(na) && isNaN(nb)) return -1;
+  if (isNaN(na) && !isNaN(nb)) return 1;
+  return (a.name || "").localeCompare(b.name || "", "cs");
+}
+function migratePlayerYear(p) {
+  if (!p || typeof p !== "object") return p;
+  const raw = (p.birthYear || p.age || "").toString().trim();
+  if (raw) {
+    const n = parseInt(raw, 10);
+    if (!isNaN(n) && n >= 1900 && n <= 2100) p.birthYear = String(n);
+    else if (!isNaN(n) && n > 0 && n < 120) p.birthYear = String(new Date().getFullYear() - n);
+    else p.birthYear = raw;
+  } else p.birthYear = "";
+  delete p.age;
+  return p;
+}
 function buildRosterPoster() {
-  const players = curRoster().slice().sort((a, b) => {
-    const na = parseInt(a.num, 10), nb = parseInt(b.num, 10);
-    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
-    if (!isNaN(na) && isNaN(nb)) return -1;
-    if (isNaN(na) && !isNaN(nb)) return 1;
-    return (a.name || "").localeCompare(b.name || "", "cs");
-  }).map(p => ({ name: p.name, num: p.num, photo: getImg(p.photo) }));
-  return { title: val("rd_title"), season: val("rd_season"), coach: val("rd_coach"), players };
+  const players = curRoster().slice().sort(sortPlayers).map(p => ({
+    name: p.name, num: p.num, birthYear: p.birthYear || "", pos: p.pos || "", photo: getImg(p.photo),
+  }));
+  const staff = curStaff().slice().map(s => ({ name: s.name, role: s.role || "" }));
+  return { title: val("rd_title"), season: val("rd_season"), players, staff };
 }
 
 function render() {
@@ -708,10 +740,10 @@ const LU_LS = "brumovice_lineup_v1";
 function saveLineup() {
   try {
     localStorage.setItem(LU_LS, JSON.stringify({
-      roster: state.roster, lineup: state.lineup,
+      roster: state.roster, lineup: state.lineup, staff: state.staff,
       meta: {
         title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"), time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
-        rd_title: val("rd_title"), rd_season: val("rd_season"), rd_coach: val("rd_coach"),
+        rd_title: val("rd_title"), rd_season: val("rd_season"),
       },
     }));
   } catch (e) { alert("Nepodařilo se uložit kádr – možná je plná paměť prohlížeče (příliš mnoho fotek)."); }
@@ -719,7 +751,12 @@ function saveLineup() {
 function loadLineup() {
   try {
     const d = JSON.parse(localStorage.getItem(LU_LS) || "{}");
-    if (d.roster) { state.roster.muzi = d.roster.muzi || []; state.roster.dorost = d.roster.dorost || []; }
+    if (d.roster) {
+      ["muzi", "dorost"].forEach(t => {
+        state.roster[t] = (d.roster[t] || []).map(migratePlayerYear);
+      });
+    }
+    if (d.staff) { state.staff.muzi = d.staff.muzi || []; state.staff.dorost = d.staff.dorost || []; }
     if (d.lineup) ["muzi", "dorost"].forEach(t => { if (d.lineup[t]) state.lineup[t] = Object.assign({ formation: "4-4-2", starters: [], subs: [] }, d.lineup[t]); });
     if (d.meta) {
       if (d.meta.title) setVal("lu_title", d.meta.title);
@@ -727,7 +764,6 @@ function loadLineup() {
       if (d.meta.comp) setVal("lu_comp", d.meta.comp); setVal("lu_coach", d.meta.coach || "");
       if (d.meta.rd_title) setVal("rd_title", d.meta.rd_title);
       if (d.meta.rd_season) setVal("rd_season", d.meta.rd_season);
-      if (d.meta.rd_coach !== undefined) setVal("rd_coach", d.meta.rd_coach || "");
     }
   } catch (e) {}
 }
@@ -758,6 +794,11 @@ function renderRoster() {
     file.addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => resizePhoto(rd.result, 320, data => { p.photo = data; saveLineup(); renderRoster(); render(); }); rd.readAsDataURL(f); });
     const num = document.createElement("input"); num.type = "text"; num.className = "lu-num"; num.value = p.num || ""; num.placeholder = "#"; num.maxLength = 3;
     num.addEventListener("input", () => { p.num = num.value.trim(); saveLineup(); refreshSlotOptions(); renderSubs(); render(); });
+    const pos = document.createElement("select"); pos.className = "lu-pos";
+    POS_OPTS.forEach(o => { const opt = document.createElement("option"); opt.value = o.v; opt.textContent = o.l; if ((p.pos || "") === o.v) opt.selected = true; pos.appendChild(opt); });
+    pos.addEventListener("change", () => { p.pos = pos.value; saveLineup(); render(); });
+    const year = document.createElement("input"); year.type = "text"; year.className = "lu-year"; year.value = p.birthYear || ""; year.placeholder = "Ročník"; year.maxLength = 4; year.inputMode = "numeric";
+    year.addEventListener("input", () => { p.birthYear = year.value.replace(/\D/g, "").slice(0, 4); year.value = p.birthYear; saveLineup(); render(); });
     const name = document.createElement("input"); name.type = "text"; name.className = "lu-name"; name.value = p.name || ""; name.placeholder = "Jméno hráče";
     name.addEventListener("input", () => { p.name = name.value; saveLineup(); refreshSlotOptions(); renderSubs(); render(); });
     const del = document.createElement("button"); del.type = "button"; del.className = "lu-del"; del.textContent = "✕"; del.title = "Odebrat hráče";
@@ -766,9 +807,25 @@ function renderRoster() {
       const lu = curLineup();
       lu.starters = (lu.starters || []).map(id => id === p.id ? "" : id);
       lu.subs = (lu.subs || []).filter(id => id !== p.id);
-      saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); render();
+      saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render();
     });
-    row.append(img, file, num, name, del);
+    row.append(img, file, num, pos, year, name, del);
+    box.appendChild(row);
+  });
+}
+function renderStaff() {
+  const box = $("rd_staff"); if (!box) return;
+  const list = curStaff(); box.innerHTML = "";
+  if (!list.length) { const d = document.createElement("div"); d.className = "lu-empty"; d.textContent = "Zatím nikdo v realizačním týmu."; box.appendChild(d); return; }
+  list.forEach(s => {
+    const row = document.createElement("div"); row.className = "rd-staff-row";
+    const name = document.createElement("input"); name.type = "text"; name.value = s.name || ""; name.placeholder = "Jméno";
+    name.addEventListener("input", () => { s.name = name.value; saveLineup(); render(); });
+    const role = document.createElement("input"); role.type = "text"; role.value = s.role || ""; role.placeholder = "Pozice (např. Vedoucí týmu)";
+    role.addEventListener("input", () => { s.role = role.value; saveLineup(); render(); });
+    const del = document.createElement("button"); del.type = "button"; del.className = "lu-del"; del.textContent = "✕";
+    del.addEventListener("click", () => { state.staff[state.team] = curStaff().filter(x => x.id !== s.id); saveLineup(); renderStaff(); render(); });
+    row.append(name, role, del);
     box.appendChild(row);
   });
 }
@@ -842,14 +899,18 @@ function refreshRosterPosterUI() {
 }
 function refreshLineupUI() {
   const fsel = $("lu_formation"); if (fsel) fsel.value = curLineup().formation;
-  renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI();
+  renderRoster(); renderStaff(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI();
 }
-$("lu_add_player").addEventListener("click", () => { curRoster().push({ id: newId(), num: "", name: "", photo: null }); saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render(); });
+$("lu_add_player").addEventListener("click", () => { curRoster().push({ id: newId(), num: "", name: "", photo: null, birthYear: "", pos: "" }); saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render(); });
+$("rd_add_staff").addEventListener("click", () => { curStaff().push({ id: newId(), name: "", role: "Vedoucí týmu" }); saveLineup(); renderStaff(); render(); });
 $("lu_formation").addEventListener("change", () => { curLineup().formation = $("lu_formation").value; saveLineup(); renderLineupSlots(); render(); });
 ["lu_title", "lu_opp", "lu_date", "lu_time", "lu_comp", "lu_coach"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", saveLineup); });
-["rd_title", "rd_season", "rd_coach"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
+["rd_title", "rd_season"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
 $("lu_export").addEventListener("click", () => {
-  const data = { app: "brumovice-generator", type: "roster", team: state.team, players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo })) };
+  const data = { app: "brumovice-generator", type: "roster", team: state.team,
+    players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo, birthYear: p.birthYear || "", pos: p.pos || "" })),
+    staff: curStaff().map(s => ({ name: s.name, role: s.role || "" })),
+  };
   if (!data.players.length) { alert("Kádr je prázdný – není co zálohovat."); return; }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: "application/json" }));
@@ -865,15 +926,20 @@ $("lu_import").addEventListener("change", e => {
       if (!players.length) { alert("V souboru nejsou žádní hráči."); return; }
       let replace = true;
       if (curRoster().length) replace = confirm("Nahradit stávající kádr novým ze souboru?\n\nOK = nahradit, Zrušit = přidat ke stávajícím.");
-      const mapped = players.map(p => ({ id: newId(), num: (p.num || "").toString(), name: p.name || "", photo: p.photo || null }));
+      const mapped = players.map(p => {
+        const m = migratePlayerYear({ num: (p.num || "").toString(), name: p.name || "", photo: p.photo || null, birthYear: (p.birthYear || p.age || "").toString(), pos: p.pos || "" });
+        return { id: newId(), num: m.num, name: m.name, photo: m.photo, birthYear: m.birthYear || "", pos: m.pos };
+      });
+      const staff = (d.staff || []).filter(s => s && s.name).map(s => ({ id: newId(), name: s.name || "", role: s.role || "" }));
       if (replace) {
         state.roster[state.team] = mapped;
+        if (staff.length) state.staff[state.team] = staff;
         const lu = curLineup();
         lu.starters = mapped.slice(0, 11).map(p => p.id);   // rovnou postav základní 11 na hřiště
         lu.subs = mapped.slice(11).map(p => p.id);           // zbytek na lavičku
-      } else curRoster().push.apply(curRoster(), mapped);
+      } else { curRoster().push.apply(curRoster(), mapped); if (staff.length) curStaff().push.apply(curStaff(), staff); }
       saveLineup(); refreshLineupUI(); render();
-      alert("Načteno hráčů: " + mapped.length + ". Základní sestava se předvyplnila – uprav si ji podle potřeby.");
+      alert("Načteno hráčů: " + mapped.length + (staff.length ? ", realizační tým: " + staff.length : "") + ". Základní sestava se předvyplnila – uprav si ji podle potřeby.");
     } catch (err) { alert("Soubor se nepovedlo načíst: " + err.message); }
     finally { e.target.value = ""; }
   };
@@ -1062,8 +1128,13 @@ function buildAiContext() {
   }
   if (state.tpl === "roster") {
     const rp = m.rosterPoster;
-    const names = (rp.players || []).map(p => (p.num ? p.num + " " : "") + p.name);
-    return `Typ příspěvku: KÁDR NA SEZÓNU ${rp.season} (${team}). Hráči: ${names.join(", ")}.` + (rp.coach ? ` Trenér: ${rp.coach}.` : "");
+    const line = (k, label) => {
+      const names = (rp.players || []).filter(p => p.pos === k).map(p => (p.num ? p.num + " " : "") + p.name + (p.birthYear ? " (r. " + p.birthYear + ")" : ""));
+      return names.length ? label + ": " + names.join(", ") : "";
+    };
+    const parts = [line("gk", "Brankáři"), line("def", "Obránci"), line("mid", "Záložníci"), line("fwd", "Útočníci")].filter(Boolean);
+    const staff = (rp.staff || []).map(s => s.name + (s.role ? " (" + s.role + ")" : ""));
+    return `Typ příspěvku: KÁDR NA SEZÓNU ${rp.season} (${team}). ${parts.join(". ")}.` + (staff.length ? ` Realizační tým: ${staff.join(", ")}.` : "");
   }
   const a = m.announce;
   return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;

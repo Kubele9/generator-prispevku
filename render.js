@@ -723,13 +723,39 @@
     }
 
     drawNamePlate(c, { name: p.name, num: "" }, cx, nameTop, d, colors, cellW * 0.96);
+    if (p.birthYear) {
+      const afs = Math.max(11, Math.min(cellH * 0.14, 16));
+      c.textAlign = "center"; c.textBaseline = "top"; c.fillStyle = tx; c.globalAlpha = 0.72;
+      c.font = "700 " + afs + "px " + FONT;
+      c.fillText("r. " + String(p.birthYear), cx, nameTop + namePlateH + 2);
+      c.globalAlpha = 1;
+    }
     c.textBaseline = "alphabetic";
+  }
+
+  function rosterSectionCols(n, isStory) {
+    if (n <= 1) return 1;
+    if (isStory) return Math.min(3, n);
+    return Math.min(4, n);
+  }
+
+  function drawRosterSectionTitle(c, title, gridLeft, gridW, y, colors, isStory) {
+    const fs = isStory ? 26 : 22;
+    const bandH = fs + (isStory ? 20 : 16);
+    c.fillStyle = colors.primary;
+    roundRect(c, gridLeft, y, gridW, bandH, Math.min(12, bandH * 0.32)); c.fill();
+    c.textAlign = "left"; c.textBaseline = "middle"; c.fillStyle = pillTextColor(colors.primary);
+    c.font = "800 " + fs + "px " + FONT;
+    c.fillText(title, gridLeft + (isStory ? 20 : 16), y + bandH / 2 + 1);
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    return y + bandH + (isStory ? 12 : 9);
   }
 
   function renderRosterSeason(c, w, h, model) {
     const r = model.rosterPoster || {}, colors = model.colors, tx = colors.text;
     const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
     const players = r.players || [];
+    const staff = r.staff || [];
 
     let y = isStory ? 140 : 56;
     y = drawTeamBadge(c, cx, y, model);
@@ -749,14 +775,24 @@
     }
     c.textBaseline = "alphabetic";
 
-    const coachH = (r.coach || "").trim() ? (isStory ? 44 : 36) : 0;
+    const staffLines = staff.filter(s => (s.name || "").trim());
+    const staffH = staffLines.length ? (isStory ? 58 : 47) + staffLines.length * (isStory ? 34 : 28) : 0;
     const footerReserve = (isStory ? 96 : 58) + 26;
-    const gridTop = y + (isStory ? 24 : 16);
-    const gridBottom = h - footerReserve - coachH - (coachH ? 12 : 0);
+    const gridTop = y + (isStory ? 20 : 14);
+    const gridBottom = h - footerReserve - staffH - (staffH ? 14 : 0);
     const gridLeft = w * 0.04, gridW = w * 0.92;
-    const n = players.length;
 
-    if (!n) {
+    const sections = [
+      { key: "gk", title: "BRANKÁŘI" },
+      { key: "def", title: "OBRÁNCI" },
+      { key: "mid", title: "ZÁLOŽNÍCI" },
+      { key: "fwd", title: "ÚTOČNÍCI" },
+    ];
+    const grouped = sections.map(s => ({ ...s, players: players.filter(p => p.pos === s.key) })).filter(s => s.players.length);
+    const unassigned = players.filter(p => !p.pos || !sections.some(s => s.key === p.pos));
+    if (unassigned.length) grouped.push({ key: "other", title: "HRÁČI", players: unassigned });
+
+    if (!players.length) {
       c.fillStyle = tx; c.globalAlpha = 0.45; c.textAlign = "center";
       c.font = "700 " + (isStory ? 32 : 26) + "px " + FONT;
       c.fillText("Zatím žádní hráči v kádru", cx, (gridTop + gridBottom) / 2 - 10);
@@ -764,24 +800,34 @@
       c.fillText("Přidej je v sekci Sestava → Kádr týmu", cx, (gridTop + gridBottom) / 2 + 28);
       c.globalAlpha = 1;
     } else {
-      const cols = isStory ? (n > 12 ? 3 : (n > 6 ? 3 : 2)) : (n > 16 ? 4 : (n > 9 ? 4 : (n > 4 ? 3 : 2)));
-      const rows = Math.ceil(n / cols);
-      const cellW = gridW / cols;
-      const cellH = (gridBottom - gridTop) / rows;
-      for (let i = 0; i < n; i++) {
-        const col = i % cols, row = Math.floor(i / cols);
-        const ccx = gridLeft + cellW * (col + 0.5);
-        const ccy = gridTop + cellH * (row + 0.5);
-        drawRosterCard(c, players[i], ccx, ccy, cellW * 0.94, cellH * 0.92, colors);
+      y = gridTop;
+      for (const g of grouped) {
+        if (y >= gridBottom - 60) break;
+        y = drawRosterSectionTitle(c, g.title, gridLeft, gridW, y, colors, isStory);
+        const cols = rosterSectionCols(g.players.length, isStory);
+        const rows = Math.ceil(g.players.length / cols);
+        const cellW = gridW / cols;
+        const cellH = Math.min(cellW * 1.15, (gridBottom - y) / Math.max(1, rows + 0.15), isStory ? 210 : 175);
+        for (let i = 0; i < g.players.length; i++) {
+          const col = i % cols, row = Math.floor(i / cols);
+          const ccx = gridLeft + cellW * (col + 0.5);
+          const ccy = y + cellH * (row + 0.5);
+          drawRosterCard(c, g.players[i], ccx, ccy, cellW * 0.94, cellH * 0.92, colors);
+        }
+        y += rows * cellH + (isStory ? 18 : 12);
       }
     }
 
-    if (coachH) {
-      c.textAlign = "center"; c.textBaseline = "top";
-      c.fillStyle = tx; c.globalAlpha = 0.85;
-      c.font = "700 " + (isStory ? 28 : 24) + "px " + FONT;
-      c.fillText("Trenér: " + r.coach.trim(), cx, gridBottom + 8);
-      c.globalAlpha = 1; c.textBaseline = "alphabetic";
+    if (staffLines.length) {
+      let sy = Math.min(gridBottom + 8, h - footerReserve - staffH);
+      sy = drawRosterSectionTitle(c, "REALIZAČNÍ TÝM", gridLeft, gridW, sy, colors, isStory);
+      c.textAlign = "center"; c.textBaseline = "top"; c.fillStyle = tx;
+      c.font = "700 " + (isStory ? 26 : 22) + "px " + FONT;
+      for (const s of staffLines) {
+        const line = (s.name || "").trim() + (s.role ? "  ·  " + s.role : "");
+        c.fillText(line, cx, sy); sy += isStory ? 34 : 28;
+      }
+      c.textBaseline = "alphabetic";
     }
 
     drawFooter(c, w, h, model);
