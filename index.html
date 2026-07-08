@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-14" />
+<meta name="app-version" content="2026-07-08-15" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -791,16 +791,24 @@ function renderRoster() {
     up.addEventListener("click", () => moveRosterPlayer(idx, -1));
     down.addEventListener("click", () => moveRosterPlayer(idx, 1));
     mv.append(up, down);
-    const img = document.createElement("img"); img.className = "lu-thumb"; img.alt = ""; img.title = "Klikni pro nahrání/změnu fotky";
-    if (p.photo) img.src = p.photo;
+    const img = document.createElement("canvas"); img.className = "lu-thumb"; img.title = "Klikni pro nahrání/změnu fotky";
+    const drawThumb = () => {
+      const dpr = window.devicePixelRatio || 1, S = 44;
+      img.width = S * dpr; img.height = S * dpr;
+      const ctx = img.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, S, S);
+      const pimg = getImg(p.photo);
+      if (pimg && !pimg.complete) pimg.addEventListener("load", drawThumb, { once: true });
+      Poster.drawAvatar(ctx, pimg, S / 2, S / 2, S, { primary: "#556" }, p.photoY);
+    };
+    drawThumb();
     const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.style.display = "none";
     img.addEventListener("click", () => file.click());
     file.addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => resizePhoto(rd.result, 320, data => { p.photo = data; saveLineup(); renderRoster(); render(); }); rd.readAsDataURL(f); });
     const fy = document.createElement("div"); fy.className = "lu-fy";
     const fyUp = document.createElement("button"); fyUp.type = "button"; fyUp.textContent = "⤒"; fyUp.title = "Fotku výš v kolečku";
     const fyDn = document.createElement("button"); fyDn.type = "button"; fyDn.textContent = "⤓"; fyDn.title = "Fotku níž v kolečku";
-    fyUp.addEventListener("click", () => { p.photoY = Math.max(-0.4, Math.round(((p.photoY || 0) - 0.05) * 100) / 100); saveLineup(); render(); });
-    fyDn.addEventListener("click", () => { p.photoY = Math.min(0.4, Math.round(((p.photoY || 0) + 0.05) * 100) / 100); saveLineup(); render(); });
+    fyUp.addEventListener("click", () => { p.photoY = Math.max(-0.4, Math.round(((p.photoY || 0) - 0.05) * 100) / 100); saveLineup(); drawThumb(); render(); });
+    fyDn.addEventListener("click", () => { p.photoY = Math.min(0.4, Math.round(((p.photoY || 0) + 0.05) * 100) / 100); saveLineup(); drawThumb(); render(); });
     fy.append(fyUp, fyDn);
     const num = document.createElement("input"); num.type = "text"; num.className = "lu-num"; num.value = p.num || ""; num.placeholder = "#"; num.maxLength = 3;
     num.addEventListener("input", () => { p.num = num.value.trim(); saveLineup(); refreshSlotOptions(); renderSubs(); render(); });

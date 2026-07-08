@@ -1030,5 +1030,5 @@
     else if (model.tpl === "roster") renderRosterSeason(c, w, h, model);
   }
 
-  global.Poster = { render: render, FONT: FONT };
+  global.Poster = { render: render, FONT: FONT, drawAvatar: drawAvatar };
 })(typeof window !== "undefined" ? window : this);
