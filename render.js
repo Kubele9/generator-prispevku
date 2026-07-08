@@ -743,33 +743,39 @@
     const unassigned = players.filter(p => !p.pos || !sectionDefs.some(s => s.key === p.pos));
     if (unassigned.length) grouped.push({ key: "other", title: "HRÁČI", players: unassigned });
 
-    const sections = grouped.slice();
-    if (staff.length) sections.push({ key: "staff", title: "REALIZAČNÍ TÝM", players: [], staff });
+    const staffLines = staff;
 
     const top = y + (isStory ? 14 : 9);
     const footerReserve = (isStory ? 96 : 58) + 18;
     const bottom = h - footerReserve;
-    const availH = bottom - top;
 
-    if (!sections.length) {
+    if (!grouped.length && !staffLines.length) {
+      const availH0 = bottom - top;
       c.fillStyle = tx; c.globalAlpha = 0.45; c.textAlign = "center";
       c.font = "700 " + (isStory ? 32 : 26) + "px " + FONT;
-      c.fillText("Zatím žádní hráči v kádru", cx, top + availH / 2 - 10);
+      c.fillText("Zatím žádní hráči v kádru", cx, top + availH0 / 2 - 10);
       c.font = "600 " + (isStory ? 24 : 20) + "px " + FONT;
-      c.fillText("Přidej je v sekci Sestava → Kádr týmu", cx, top + availH / 2 + 28);
+      c.fillText("Přidej je v sekci Sestava → Kádr týmu", cx, top + availH0 / 2 + 28);
       c.globalAlpha = 1; drawFooter(c, w, h, model); return;
     }
 
-    // rozložení sekcí do sloupců: Feed = 2 sloupce vedle sebe, Story/tisk = 1 sloupec
+    // realizační tým – kompaktní, nenápadný blok dole (bez výrazného pruhu)
+    const labelFs = isStory ? 24 : 22, lineFs = isStory ? 26 : 24, lineH = lineFs * 1.35;
+    const staffH = staffLines.length ? (labelFs + 8 + staffLines.length * lineH + 10) : 0;
+    const colsBottom = bottom - staffH;
+    const availH = colsBottom - top;
+
+    // rozložení sekcí do sloupců: Feed = pevně (vlevo brankáři+obránci, vpravo záložníci+útočníci), Story/tisk = 1 sloupec
     const nCols = isStory ? 1 : 2;
     const cols = Array.from({ length: nCols }, () => ({ secs: [], units: 0 }));
-    const sectionRows = s => (s.staff ? s.staff.length * 0.92 : s.players.length);
-    for (const s of sections) {
-      let m = 0; for (let i = 1; i < nCols; i++) if (cols[i].units < cols[m].units) m = i;
-      if (cols[m].secs.length) cols[m].units += 0.4;
-      cols[m].secs.push(s); cols[m].units += 0.9 + 0.18 + sectionRows(s);
+    const addSec = (i, s) => { if (cols[i].secs.length) cols[i].units += 0.4; cols[i].secs.push(s); cols[i].units += 0.9 + 0.18 + s.players.length; };
+    if (nCols === 1) {
+      for (const s of grouped) addSec(0, s);
+    } else {
+      const leftKeys = { gk: 1, def: 1, other: 1 };
+      for (const s of grouped) addSec(leftKeys[s.key] ? 0 : 1, s);
     }
-    const maxUnits = Math.max(...cols.map(o => o.units)) || 1;
+    const maxUnits = Math.max(1, ...cols.map(o => o.units));
     let rowH = availH / maxUnits;
     rowH = Math.min(rowH, isStory ? 92 : 96);
     rowH = Math.max(rowH, 18);
@@ -813,19 +819,23 @@
         c.font = "800 " + (headerH * 0.5) + "px " + FONT;
         c.fillText(s.title, colX + headerH * 0.55, yy + headerH / 2 + 1);
         yy += headerH + rowH * 0.18;
-        if (s.staff) {
-          for (const st of s.staff) {
-            c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = tx;
-            c.font = "700 " + (rowH * 0.38) + "px " + FONT;
-            c.fillText((st.name || "").trim() + (st.role ? "   ·   " + st.role : ""), colX + colW / 2, yy + rowH * 0.46 + 1);
-            yy += rowH * 0.92;
-          }
-        } else {
-          for (let pi = 0; pi < s.players.length; pi++) { drawPlayerRow(colX, colW, yy, s.players[pi], pi % 2 === 0); yy += rowH; }
-        }
+        for (let pi = 0; pi < s.players.length; pi++) { drawPlayerRow(colX, colW, yy, s.players[pi], pi % 2 === 0); yy += rowH; }
         first = false;
       }
     }
+
+    if (staffLines.length) {
+      let sy = colsBottom + (isStory ? 14 : 10);
+      c.textAlign = "center"; c.textBaseline = "top";
+      c.fillStyle = colors.primary; c.globalAlpha = 0.85; c.font = "800 " + labelFs + "px " + FONT;
+      c.fillText("REALIZAČNÍ TÝM", cx, sy); c.globalAlpha = 1; sy += labelFs + 8;
+      c.fillStyle = tx; c.globalAlpha = 0.78; c.font = "600 " + lineFs + "px " + FONT;
+      for (const st of staffLines) {
+        c.fillText((st.name || "").trim() + (st.role ? "  ·  " + st.role : ""), cx, sy); sy += lineH;
+      }
+      c.globalAlpha = 1;
+    }
+
     c.textAlign = "center"; c.textBaseline = "alphabetic";
     drawFooter(c, w, h, model);
   }
