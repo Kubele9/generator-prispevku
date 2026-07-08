@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-11" />
+<meta name="app-version" content="2026-07-08-12" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -67,6 +67,9 @@
   .lu-subs label { display: inline-flex; align-items: center; gap: 6px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 13px; cursor: pointer; font-weight: 600; }
   .lu-subs input { width: auto; }
   .lu-prow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .lu-prow .lu-move { flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; }
+  .lu-prow .lu-move button { background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 6px; width: 26px; height: 20px; line-height: 1; font-size: 10px; cursor: pointer; padding: 0; }
+  .lu-prow .lu-move button:disabled { opacity: .3; cursor: default; }
   .lu-prow .lu-thumb { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--panel-2); border: 1px solid var(--border); cursor: pointer; display: block; }
   .lu-prow .lu-num { flex: 0 0 48px; }
   .lu-prow .lu-pos { flex: 0 0 108px; }
@@ -581,13 +584,6 @@ function buildLineup() {
     formation: curLineup().formation, gk, lines, subs,
   };
 }
-function sortPlayers(a, b) {
-  const na = parseInt(a.num, 10), nb = parseInt(b.num, 10);
-  if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
-  if (!isNaN(na) && isNaN(nb)) return -1;
-  if (isNaN(na) && !isNaN(nb)) return 1;
-  return (a.name || "").localeCompare(b.name || "", "cs");
-}
 function migratePlayerYear(p) {
   if (!p || typeof p !== "object") return p;
   const raw = (p.birthYear || p.age || "").toString().trim();
@@ -601,7 +597,7 @@ function migratePlayerYear(p) {
   return p;
 }
 function buildRosterPoster() {
-  const players = curRoster().slice().sort(sortPlayers).map(p => ({
+  const players = curRoster().slice().map(p => ({
     name: p.name, num: p.num, birthYear: p.birthYear || "", pos: p.pos || "", photo: getImg(p.photo),
   }));
   const staff = curStaff().slice().map(s => ({ name: s.name, role: s.role || "" }));
@@ -785,8 +781,14 @@ function renderRoster() {
   const box = $("lu_roster"); if (!box) return;
   const list = curRoster(); box.innerHTML = "";
   if (!list.length) { const d = document.createElement("div"); d.className = "lu-empty"; d.textContent = "Zatím žádní hráči. Přidej je tlačítkem níže."; box.appendChild(d); return; }
-  list.forEach(p => {
+  list.forEach((p, idx) => {
     const row = document.createElement("div"); row.className = "lu-prow";
+    const mv = document.createElement("div"); mv.className = "lu-move";
+    const up = document.createElement("button"); up.type = "button"; up.textContent = "▲"; up.title = "Posunout nahoru"; up.disabled = idx === 0;
+    const down = document.createElement("button"); down.type = "button"; down.textContent = "▼"; down.title = "Posunout dolů"; down.disabled = idx === list.length - 1;
+    up.addEventListener("click", () => moveRosterPlayer(idx, -1));
+    down.addEventListener("click", () => moveRosterPlayer(idx, 1));
+    mv.append(up, down);
     const img = document.createElement("img"); img.className = "lu-thumb"; img.alt = ""; img.title = "Klikni pro nahrání/změnu fotky";
     if (p.photo) img.src = p.photo;
     const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.style.display = "none";
@@ -809,9 +811,16 @@ function renderRoster() {
       lu.subs = (lu.subs || []).filter(id => id !== p.id);
       saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render();
     });
-    row.append(img, file, num, pos, year, name, del);
+    row.append(mv, img, file, num, pos, year, name, del);
     box.appendChild(row);
   });
+}
+function moveRosterPlayer(idx, dir) {
+  const list = curRoster();
+  const j = idx + dir;
+  if (j < 0 || j >= list.length) return;
+  const t = list[idx]; list[idx] = list[j]; list[j] = t;
+  saveLineup(); renderRoster(); render();
 }
 function renderStaff() {
   const box = $("rd_staff"); if (!box) return;
