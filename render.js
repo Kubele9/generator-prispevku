@@ -725,7 +725,7 @@
     drawNamePlate(c, { name: p.name, num: "" }, cx, nameTop, d, colors, cellW * 0.96);
     if (p.birthYear) {
       const afs = Math.max(11, Math.min(cellH * 0.14, 16));
-      c.textAlign = "center"; c.textBaseline = "top"; c.fillStyle = tx; c.globalAlpha = 0.72;
+      c.textAlign = "center"; c.textBaseline = "top"; c.fillStyle = colors.text; c.globalAlpha = 0.72;
       c.font = "700 " + afs + "px " + FONT;
       c.fillText("r. " + String(p.birthYear), cx, nameTop + namePlateH + 2);
       c.globalAlpha = 1;
