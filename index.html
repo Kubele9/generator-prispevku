@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-18" />
+<meta name="app-version" content="2026-07-08-19" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -27,6 +27,7 @@
   header { padding: 14px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   header h1 { font-size: 17px; margin: 0; font-weight: 800; display:flex; align-items:center; gap:10px; }
   header .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  header .ver { font-size: 11px; font-weight: 700; color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; }
   .layout { display: grid; grid-template-columns: 400px 1fr; min-height: calc(100vh - 64px); }
   @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
@@ -111,7 +112,7 @@
 <body>
 <header>
   <div>
-    <h1>Generátor příspěvků <span class="badge">Sokol Brumovice</span></h1>
+    <h1>Generátor příspěvků <span class="badge">Sokol Brumovice</span> <span class="ver" id="appVer"></span></h1>
     <div class="sub">Vyplň → náhled se aktualizuje → stáhni PNG pro FB a Instagram</div>
   </div>
   <div class="format-toggle" id="formatToggle">
@@ -1301,6 +1302,12 @@ if (!state.coverData.muzi && (window.DEFAULT_COVERS || []).length) {
 }
 refreshCoverUI();
 applyCoverBg();
+// zobraz verzi appky (z meta tagu) v hlavičce
+(function () {
+  const m = document.querySelector('meta[name="app-version"]');
+  const el = $("appVer");
+  if (m && el) el.textContent = "v" + (m.getAttribute("content") || "?");
+})();
 // na počítači (bez přímého sdílení) popiš tlačítko srozumitelněji
 if (!canShareFiles()) { $("shareBtn").textContent = "📋 Zkopírovat pro FB / Instagram"; }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
