@@ -688,6 +688,105 @@
     drawFooter(c, w, h, model);
   }
 
+  /* ---------- KÁDR SEZÓNY (mřížka hráčů) ---------- */
+  function drawRosterCard(c, p, cx, cy, cellW, cellH, colors) {
+    const d = Math.min(cellW * 0.78, cellH * 0.58);
+    const namePlateH = Math.max(20, Math.min(cellH * 0.24, 32));
+    const nameTop = cy + cellH * 0.5 - namePlateH - 4;
+    const photoBottom = nameTop - 6;
+
+    if (isReady(p.photo)) {
+      const { b, dispW, dispH } = fitCutout(p.photo, cellW, d);
+      const top = photoBottom - dispH;
+      const left = cx - dispW / 2;
+      c.save();
+      c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = Math.max(6, cellW * 0.05); c.shadowOffsetY = 3;
+      c.drawImage(p.photo, b.x, b.y, b.w, b.h, left, top, dispW, dispH);
+      c.restore();
+      if (p.num) {
+        const br = Math.max(12, Math.min(cellW * 0.13, 22));
+        const bx = cx + Math.min(dispW * 0.36, cellW * 0.34), by = top + br * 0.55;
+        c.beginPath(); c.arc(bx, by, br, 0, Math.PI * 2);
+        c.fillStyle = colors.primary; c.fill();
+        c.lineWidth = 2; c.strokeStyle = "rgba(255,255,255,0.95)"; c.stroke();
+        c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
+        c.font = "800 " + (br * 0.92) + "px " + FONT; c.fillText(String(p.num), bx, by + 1);
+      }
+    } else {
+      const r = d * 0.34, ccy = photoBottom - r;
+      c.save(); c.beginPath(); c.arc(cx, ccy, r, 0, Math.PI * 2);
+      c.shadowColor = "rgba(0,0,0,0.25)"; c.shadowBlur = 8; c.shadowOffsetY = 3;
+      c.fillStyle = colors.primary; c.fill(); c.restore();
+      c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
+      const t = p.num ? String(p.num) : ((surname(p.name) || "?")[0] || "?").toUpperCase();
+      c.font = "800 " + (r * 0.85) + "px " + FONT; c.fillText(t, cx, ccy + 1);
+    }
+
+    drawNamePlate(c, { name: p.name, num: "" }, cx, nameTop, d, colors, cellW * 0.96);
+    c.textBaseline = "alphabetic";
+  }
+
+  function renderRosterSeason(c, w, h, model) {
+    const r = model.rosterPoster || {}, colors = model.colors, tx = colors.text;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+    const players = r.players || [];
+
+    let y = isStory ? 140 : 56;
+    y = drawTeamBadge(c, cx, y, model);
+    y += isStory ? 28 : 22;
+
+    c.textAlign = "center"; c.fillStyle = tx;
+    const title = (r.title || "").toUpperCase();
+    if (title) {
+      const ts = fitFont(c, title, w * 0.88, isStory ? 70 : 58, "900", 30);
+      c.textBaseline = "top"; c.font = "900 " + ts + "px " + FONT;
+      c.fillText(title, cx, y); y += ts + (isStory ? 12 : 9);
+    }
+    if ((r.season || "").trim()) {
+      const ss = isStory ? 36 : 30;
+      c.textBaseline = "top"; c.fillStyle = colors.primary; c.font = "800 " + ss + "px " + FONT;
+      c.fillText(r.season.trim(), cx, y); y += ss + (isStory ? 16 : 12);
+    }
+    c.textBaseline = "alphabetic";
+
+    const coachH = (r.coach || "").trim() ? (isStory ? 44 : 36) : 0;
+    const footerReserve = (isStory ? 96 : 58) + 26;
+    const gridTop = y + (isStory ? 24 : 16);
+    const gridBottom = h - footerReserve - coachH - (coachH ? 12 : 0);
+    const gridLeft = w * 0.04, gridW = w * 0.92;
+    const n = players.length;
+
+    if (!n) {
+      c.fillStyle = tx; c.globalAlpha = 0.45; c.textAlign = "center";
+      c.font = "700 " + (isStory ? 32 : 26) + "px " + FONT;
+      c.fillText("Zatím žádní hráči v kádru", cx, (gridTop + gridBottom) / 2 - 10);
+      c.font = "600 " + (isStory ? 24 : 20) + "px " + FONT;
+      c.fillText("Přidej je v sekci Sestava → Kádr týmu", cx, (gridTop + gridBottom) / 2 + 28);
+      c.globalAlpha = 1;
+    } else {
+      const cols = isStory ? (n > 12 ? 3 : (n > 6 ? 3 : 2)) : (n > 16 ? 4 : (n > 9 ? 4 : (n > 4 ? 3 : 2)));
+      const rows = Math.ceil(n / cols);
+      const cellW = gridW / cols;
+      const cellH = (gridBottom - gridTop) / rows;
+      for (let i = 0; i < n; i++) {
+        const col = i % cols, row = Math.floor(i / cols);
+        const ccx = gridLeft + cellW * (col + 0.5);
+        const ccy = gridTop + cellH * (row + 0.5);
+        drawRosterCard(c, players[i], ccx, ccy, cellW * 0.94, cellH * 0.92, colors);
+      }
+    }
+
+    if (coachH) {
+      c.textAlign = "center"; c.textBaseline = "top";
+      c.fillStyle = tx; c.globalAlpha = 0.85;
+      c.font = "700 " + (isStory ? 28 : 24) + "px " + FONT;
+      c.fillText("Trenér: " + r.coach.trim(), cx, gridBottom + 8);
+      c.globalAlpha = 1; c.textBaseline = "alphabetic";
+    }
+
+    drawFooter(c, w, h, model);
+  }
+
   /* ---------- ÚVODNÍ FOTO (FB cover) ---------- */
   // řada štítků (např. MUŽI + DOROST), vrací výšku
   function drawBadgesRow(c, badges, x, y, align, onColor) {
@@ -850,6 +949,7 @@
     else if (model.tpl === "souperi") renderSouperi(c, w, h, model);
     else if (model.tpl === "schedule") renderSchedule(c, w, h, model);
     else if (model.tpl === "lineup") renderLineup(c, w, h, model);
+    else if (model.tpl === "roster") renderRosterSeason(c, w, h, model);
   }
 
   global.Poster = { render: render, FONT: FONT };

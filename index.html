@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-2" />
+<meta name="app-version" content="2026-07-08-3" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -127,6 +127,7 @@
       <div class="tab" data-tpl="souperi">Soupeři</div>
       <div class="tab" data-tpl="schedule">Rozpis</div>
       <div class="tab" data-tpl="lineup">Sestava</div>
+      <div class="tab" data-tpl="roster">Kádr</div>
       <div class="tab" data-tpl="cover">Úvodní foto</div>
     </div>
 
@@ -245,6 +246,17 @@
         </div>
       </details>
       <div class="hint">Sestavu <b>nejde stáhnout z fotbal.cz s fotkami</b> (fotky členů jsou v neveřejné databázi FAČR za přihlášením). Proto si jednou nahraješ kádr a před zápasem už jen klikáš, kdo hraje. Pro sdílení je ideální <b>Story</b> nebo <b>Feed</b>.</div>
+    </div>
+
+    <!-- KÁDR SEZÓNY -->
+    <div class="tpl" data-tpl="roster" style="display:none">
+      <div class="field"><label>Nadpis</label><input type="text" id="rd_title" value="Kádr sezóny" /></div>
+      <div class="field row">
+        <div><label>Sezóna</label><input type="text" id="rd_season" value="2026/2027" /></div>
+        <div><label>Trenér (nepovinné)</label><input type="text" id="rd_coach" value="" placeholder="Jméno trenéra" /></div>
+      </div>
+      <div class="mini" id="rd_count">V kádru: 0 hráčů</div>
+      <div class="hint">Zobrazí <b>všechny hráče</b> z kádru (stejný jako v sekci Sestava), seřazené podle čísla dresu. Kádr spravuješ v <b>Sestava → Kádr týmu</b> – stačí jednou naimportovat a používá se i tady. Pro sociální sítě je ideální <b>Story</b> (více hráčů) nebo <b>Feed</b>.</div>
     </div>
 
     <!-- ÚVODNÍ FOTO (FB cover) -->
@@ -516,6 +528,7 @@ function buildModel() {
     },
     schedule: buildSchedule(),
     lineup: buildLineup(),
+    rosterPoster: buildRosterPoster(),
   };
 }
 
@@ -551,6 +564,16 @@ function buildLineup() {
     time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
     formation: curLineup().formation, gk, lines, subs,
   };
+}
+function buildRosterPoster() {
+  const players = curRoster().slice().sort((a, b) => {
+    const na = parseInt(a.num, 10), nb = parseInt(b.num, 10);
+    if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb;
+    if (!isNaN(na) && isNaN(nb)) return -1;
+    if (isNaN(na) && !isNaN(nb)) return 1;
+    return (a.name || "").localeCompare(b.name || "", "cs");
+  }).map(p => ({ name: p.name, num: p.num, photo: getImg(p.photo) }));
+  return { title: val("rd_title"), season: val("rd_season"), coach: val("rd_coach"), players };
 }
 
 function render() {
@@ -686,7 +709,10 @@ function saveLineup() {
   try {
     localStorage.setItem(LU_LS, JSON.stringify({
       roster: state.roster, lineup: state.lineup,
-      meta: { title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"), time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach") },
+      meta: {
+        title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"), time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
+        rd_title: val("rd_title"), rd_season: val("rd_season"), rd_coach: val("rd_coach"),
+      },
     }));
   } catch (e) { alert("Nepodařilo se uložit kádr – možná je plná paměť prohlížeče (příliš mnoho fotek)."); }
 }
@@ -695,7 +721,14 @@ function loadLineup() {
     const d = JSON.parse(localStorage.getItem(LU_LS) || "{}");
     if (d.roster) { state.roster.muzi = d.roster.muzi || []; state.roster.dorost = d.roster.dorost || []; }
     if (d.lineup) ["muzi", "dorost"].forEach(t => { if (d.lineup[t]) state.lineup[t] = Object.assign({ formation: "4-4-2", starters: [], subs: [] }, d.lineup[t]); });
-    if (d.meta) { if (d.meta.title) setVal("lu_title", d.meta.title); setVal("lu_opp", d.meta.opp || ""); setVal("lu_date", d.meta.date || ""); setVal("lu_time", d.meta.time || ""); if (d.meta.comp) setVal("lu_comp", d.meta.comp); setVal("lu_coach", d.meta.coach || ""); }
+    if (d.meta) {
+      if (d.meta.title) setVal("lu_title", d.meta.title);
+      setVal("lu_opp", d.meta.opp || ""); setVal("lu_date", d.meta.date || ""); setVal("lu_time", d.meta.time || "");
+      if (d.meta.comp) setVal("lu_comp", d.meta.comp); setVal("lu_coach", d.meta.coach || "");
+      if (d.meta.rd_title) setVal("rd_title", d.meta.rd_title);
+      if (d.meta.rd_season) setVal("rd_season", d.meta.rd_season);
+      if (d.meta.rd_coach !== undefined) setVal("rd_coach", d.meta.rd_coach || "");
+    }
   } catch (e) {}
 }
 function newId() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -802,13 +835,19 @@ function renderSubs() {
     box.appendChild(lab);
   });
 }
+function refreshRosterPosterUI() {
+  const el = $("rd_count"); if (!el) return;
+  const n = curRoster().length;
+  el.textContent = n ? ("V kádru: " + n + " hráč" + (n === 1 ? "" : (n < 5 ? "i" : "ů"))) : "Kádr je prázdný – přidej hráče v sekci Sestava → Kádr týmu.";
+}
 function refreshLineupUI() {
   const fsel = $("lu_formation"); if (fsel) fsel.value = curLineup().formation;
-  renderRoster(); renderLineupSlots(); renderSubs();
+  renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI();
 }
-$("lu_add_player").addEventListener("click", () => { curRoster().push({ id: newId(), num: "", name: "", photo: null }); saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); });
+$("lu_add_player").addEventListener("click", () => { curRoster().push({ id: newId(), num: "", name: "", photo: null }); saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render(); });
 $("lu_formation").addEventListener("change", () => { curLineup().formation = $("lu_formation").value; saveLineup(); renderLineupSlots(); render(); });
 ["lu_title", "lu_opp", "lu_date", "lu_time", "lu_comp", "lu_coach"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", saveLineup); });
+["rd_title", "rd_season", "rd_coach"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
 $("lu_export").addEventListener("click", () => {
   const data = { app: "brumovice-generator", type: "roster", team: state.team, players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo })) };
   if (!data.players.length) { alert("Kádr je prázdný – není co zálohovat."); return; }
@@ -882,7 +921,7 @@ document.querySelectorAll("#tabs .tab").forEach(tab => tab.addEventListener("cli
   document.querySelectorAll("#tabs .tab").forEach(t => t.classList.remove("active"));
   tab.classList.add("active"); state.tpl = tab.dataset.tpl;
   document.querySelectorAll(".tpl").forEach(el => el.style.display = el.dataset.tpl === state.tpl ? "block" : "none");
-  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup") ? "none" : "block";
+  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup" || state.tpl === "roster") ? "none" : "block";
   $("formatToggle").style.display = state.tpl === "cover" ? "none" : "";
   render();
 }));
@@ -934,7 +973,7 @@ function autoLogoFromName() {
 ["r_home", "r_away", "i_opp"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", autoLogoFromName); });
 
 function currentFileName() {
-  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
+  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "roster" ? "kadr" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
   const suffix = state.tpl === "cover" ? "fb" : state.format === "print" ? "tisk-A4" : state.format;
   return "brumovice-" + name + "-" + suffix + ".png";
 }
@@ -1020,6 +1059,11 @@ function buildAiContext() {
     const subs = (l.subs || []).map(p => (p.num ? p.num + " " : "") + p.name);
     return `Typ příspěvku: ZÁKLADNÍ SESTAVA (${team}) na zápas proti ${l.opp} (${l.date}${l.time ? " " + l.time : ""}). Formace ${l.formation}.`
       + ` Základní 11: ${names.join(", ")}.` + (subs.length ? ` Náhradníci: ${subs.join(", ")}.` : "") + (l.coach ? ` Trenér: ${l.coach}.` : "");
+  }
+  if (state.tpl === "roster") {
+    const rp = m.rosterPoster;
+    const names = (rp.players || []).map(p => (p.num ? p.num + " " : "") + p.name);
+    return `Typ příspěvku: KÁDR NA SEZÓNU ${rp.season} (${team}). Hráči: ${names.join(", ")}.` + (rp.coach ? ` Trenér: ${rp.coach}.` : "");
   }
   const a = m.announce;
   return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;
