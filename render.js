@@ -58,7 +58,7 @@
     const key = img.src || String(img);
     if (cutoutCache[key]) return cutoutCache[key];
     const w = img.naturalWidth, h = img.naturalHeight;
-    const fallback = { x: 0, y: 0, w: w || 1, h: h || 1 };
+    const fallback = { x: 0, y: 0, w: w || 1, h: h || 1, headX: (w || 1) / 2 };
     if (!w || !h) { cutoutCache[key] = fallback; return fallback; }
     const cv = document.createElement("canvas");
     cv.width = w; cv.height = h;
@@ -78,7 +78,19 @@
       }
     } catch (e) { cutoutCache[key] = fallback; return fallback; }
     if (!found) { cutoutCache[key] = fallback; return fallback; }
-    const b = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
+    // vodorovný střed hlavy = střed neprůhledných pixelů v horním pásu obrysu
+    const bandBottom = minY + Math.max(1, Math.round((maxY - minY + 1) * 0.34));
+    let hMinX = w, hMaxX = 0, hFound = false;
+    try {
+      const data2 = cx.getImageData(0, 0, w, h).data;
+      for (let y = minY; y <= bandBottom; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          if (data2[(y * w + x) * 4 + 3] > 60) { hFound = true; if (x < hMinX) hMinX = x; if (x > hMaxX) hMaxX = x; }
+        }
+      }
+    } catch (e) { hFound = false; }
+    const headX = hFound ? (hMinX + hMaxX) / 2 : (minX + maxX) / 2;
+    const b = { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1, headX: headX };
     cutoutCache[key] = b; return b;
   }
 
@@ -699,7 +711,10 @@
       const b = cutoutBounds(img);
       const scale = Math.max(d / b.w, d / b.h) * 1.02; // cover
       const dw = b.w * scale, dh = b.h * scale;
-      const dx = cx - dw / 2;
+      let dx = cx - ((b.headX - b.x) * scale); // vycentrovat podle hlavy
+      // pojistka, aby výřez pokryl celé kolečko (nevznikla prázdná mezera po straně)
+      if (dx > cx - d / 2) dx = cx - d / 2;
+      if (dx + dw < cx + d / 2) dx = cx + d / 2 - dw;
       const dy = (cy - d / 2) - d * 0.06; // horní ukotvení – hlava nahoře
       c.drawImage(img, b.x, b.y, b.w, b.h, dx, dy, dw, dh);
       c.restore();
