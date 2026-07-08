@@ -702,6 +702,45 @@
   }
 
   /* ---------- KÁDR SEZÓNY (tabulka hráčů po sekcích) ---------- */
+  // očistí výřez: potlačí zelený lem po klíčování + zeroziuje slabé okraje (halo)
+  const cleanCache = {};
+  function cleanCutout(img) {
+    const key = (img && img.src) || String(img);
+    if (cleanCache[key]) return cleanCache[key];
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) return img;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const cx = cv.getContext("2d"); cx.drawImage(img, 0, 0);
+    try {
+      const id = cx.getImageData(0, 0, w, h), d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const a = d[i + 3]; if (!a) continue;
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const mx = r > b ? r : b;
+        if (g > mx) d[i + 1] = mx;      // despill – uber zelenou nad úroveň R/B
+        if (a < 70) d[i + 3] = 0;       // slabý závoj pryč
+      }
+      // 1px eroze alfy (min z okolí 3×3) – sundá halo na hraně
+      const src = new Uint8ClampedArray(d.length); src.set(d);
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const o = (y * w + x) * 4;
+          let m = src[o + 3];
+          for (let dy = -1; dy <= 1 && m; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const yy = y + dy, xx = x + dx;
+              const aa = (yy < 0 || xx < 0 || yy >= h || xx >= w) ? 0 : src[(yy * w + xx) * 4 + 3];
+              if (aa < m) m = aa;
+            }
+          }
+          d[o + 3] = m;
+        }
+      }
+      cx.putImageData(id, 0, 0);
+    } catch (e) { return img; }
+    cleanCache[key] = cv; return cv;
+  }
+
   function drawAvatar(c, img, cx, cy, d, colors, offY) {
     c.save();
     c.beginPath(); c.arc(cx, cy, d / 2, 0, Math.PI * 2);
@@ -726,7 +765,7 @@
         dx = cx - (oL + oR) / 2; // úzký výřez → vycentrovat
       }
       if (offY) dy += offY * d; // ruční svislý posun fotky (+ dolů, − nahoru)
-      c.drawImage(img, dx, dy, dw, dh);
+      c.drawImage(cleanCutout(img), dx, dy, dw, dh);
       c.restore();
     } else {
       c.fillStyle = colors.primary; c.fill();
@@ -813,7 +852,7 @@
 
     function drawPlayerRow(x, wdt, ry, p, alt) {
       if (alt) { c.fillStyle = "rgba(0,0,0,0.04)"; roundRect(c, x, ry, wdt, rowH, rowH * 0.16); c.fill(); }
-      const d = rowH * 0.84;
+      const d = rowH * 0.9;
       const acx = x + rowH * 0.14 + d / 2, acy = ry + rowH / 2;
       drawAvatar(c, p.photo, acx, acy, d, colors, p.photoY);
       const nameX = acx + d / 2 + rowH * 0.3;
