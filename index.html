@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-07-08-23" />
+<meta name="app-version" content="2026-07-08-24" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -230,6 +230,14 @@
           <option value="3-4-3">3-4-3</option>
           <option value="5-3-2">5-3-2</option>
         </select>
+      </div>
+      <div class="field">
+        <label>Styl fotek na hřišti</label>
+        <select id="lu_photostyle">
+          <option value="cutout">Postavy (výřez hráče)</option>
+          <option value="medallion">Medailonky (kolečko s obličejem)</option>
+        </select>
+        <div class="mini">Medailonky sjednotí vzhled i při různých dresech – ukáží jen obličej v kolečku.</div>
       </div>
       <div class="field">
         <label>Základní sestava (vyber z kádru)</label>
@@ -577,7 +585,7 @@ function fmtArr() { return FORMATIONS[curLineup().formation] || FORMATIONS["4-4-
 function playerById(id) { return curRoster().find(p => p.id === id) || null; }
 function buildLineup() {
   const lu = curLineup(), fmt = fmtArr();
-  const tok = id => { const p = playerById(id); return p ? { name: p.name, num: p.num, photo: getImg(p.photo) } : null; };
+  const tok = id => { const p = playerById(id); return p ? { name: p.name, num: p.num, photo: getImg(p.photo), photoY: p.photoY || 0 } : null; };
   const gk = tok(lu.starters[0]);
   const lines = []; let idx = 1;
   for (const count of fmt) { const row = []; for (let i = 0; i < count; i++) { row.push(tok(lu.starters[idx])); idx++; } lines.push(row); }
@@ -585,7 +593,7 @@ function buildLineup() {
   return {
     title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"),
     time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
-    formation: curLineup().formation, gk, lines, subs,
+    formation: curLineup().formation, photoStyle: lu.photoStyle || "cutout", gk, lines, subs,
   };
 }
 function migratePlayerYear(p) {
@@ -926,11 +934,13 @@ function refreshRosterPosterUI() {
 }
 function refreshLineupUI() {
   const fsel = $("lu_formation"); if (fsel) fsel.value = curLineup().formation;
+  const psel = $("lu_photostyle"); if (psel) psel.value = curLineup().photoStyle || "cutout";
   renderRoster(); renderStaff(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI();
 }
 $("lu_add_player").addEventListener("click", () => { curRoster().push({ id: newId(), num: "", name: "", photo: null, birthYear: "", pos: "" }); saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render(); });
 $("rd_add_staff").addEventListener("click", () => { curStaff().push({ id: newId(), name: "", role: "Vedoucí týmu" }); saveLineup(); renderStaff(); render(); });
 $("lu_formation").addEventListener("change", () => { curLineup().formation = $("lu_formation").value; saveLineup(); renderLineupSlots(); render(); });
+$("lu_photostyle").addEventListener("change", () => { curLineup().photoStyle = $("lu_photostyle").value; saveLineup(); render(); });
 ["lu_title", "lu_opp", "lu_date", "lu_time", "lu_comp", "lu_coach"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", saveLineup); });
 ["rd_title", "rd_season"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
 $("lu_export").addEventListener("click", () => {

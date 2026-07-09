@@ -582,7 +582,7 @@
     return topY + ph;
   }
 
-  function drawPlayerToken(c, tok, cx, cy, d, colors, slotW) {
+  function drawPlayerToken(c, tok, cx, cy, d, colors, slotW, style) {
     const r = d / 2;
     if (!tok) {
       c.save(); c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2);
@@ -591,6 +591,17 @@
       c.setLineDash([]); c.fillStyle = "rgba(255,255,255,0.8)"; c.textAlign = "center"; c.textBaseline = "middle";
       c.font = "800 " + (r * 0.9) + "px " + FONT; c.fillText("?", cx, cy + 1); c.restore();
       c.textBaseline = "alphabetic"; return;
+    }
+
+    // MEDAILONEK – kolečko jen s obličejem (jednotný vzhled bez ohledu na dres)
+    if (style === "medallion" && isReady(tok.photo)) {
+      c.save();
+      c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = d * 0.12; c.shadowOffsetY = 3;
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fillStyle = "#ffffff"; c.fill();
+      c.restore();
+      drawAvatar(c, tok.photo, cx, cy, d, colors, tok.photoY);
+      drawNamePlate(c, tok, cx, cy + r + 7, d, colors, (slotW || d * 1.4) * 0.96);
+      return;
     }
 
     if (isReady(tok.photo)) {
@@ -678,10 +689,11 @@
 
     // řada 0 = brankář (dole), poslední = útočníci (nahoře)
     function rowY(r) { return pitchTop + pitchH - (r + 0.5) * rowGap; }
+    const photoStyle = l.photoStyle || "cutout";
     function placeRow(arr, r) {
       const k = arr.length; if (!k) return;
       const slotW = inW / (k + 1);
-      for (let i = 0; i < k; i++) { const px = inX + inW * ((i + 1) / (k + 1)); drawPlayerToken(c, arr[i], px, rowY(r), d, colors, slotW); }
+      for (let i = 0; i < k; i++) { const px = inX + inW * ((i + 1) / (k + 1)); drawPlayerToken(c, arr[i], px, rowY(r), d, colors, slotW, photoStyle); }
     }
     placeRow([l.gk], 0);
     for (let li = 0; li < lines.length; li++) placeRow(lines[li], li + 1);
