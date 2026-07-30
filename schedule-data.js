@@ -1,4 +1,4 @@
-// Rozpis podzim 2026 – staženo z fotbal.cz (muži aktualizováno 30. 7. 2026 po hlášenkách). home/away = přesně jak na webu.
+// Rozpis podzim 2026 – staženo z fotbal.cz (muži i dorost aktualizováno 30. 7. 2026 po hlášenkách). home/away = přesně jak na webu.
 window.DEFAULT_SCHEDULE = {
   muzi: {
     team: "TJ Sokol Brumovice",
@@ -25,18 +25,18 @@ window.DEFAULT_SCHEDULE = {
     comp: "6. liga st. dorost",
     period: "Podzim 2026",
     matches: [
-      { round: "3.",  date: "16. 8. 2026",  time: "14:15", home: "Popice",            away: "Brumovice/Kobylí" },
-      { round: "4.",  date: "23. 8. 2026",  time: "14:15", home: "Brumovice/Kobylí",  away: "Kostelec" },
-      { round: "5.",  date: "30. 8. 2026",  time: "14:15", home: "Čejč/Hovorany",     away: "Brumovice/Kobylí" },
-      { round: "7.",  date: "13. 9. 2026",  time: "13:45", home: "Rohatec B",         away: "Brumovice/Kobylí" },
-      { round: "8.",  date: "20. 9. 2026",  time: "13:15", home: "Brumovice/Kobylí",  away: "Kyjov B" },
-      { round: "9.",  date: "27. 9. 2026",  time: "13:15", home: "Zaječí",            away: "Brumovice/Kobylí" },
+      { round: "3.",  date: "15. 8. 2026",  time: "16:30", home: "Popice",            away: "Brumovice/Kobylí" },
+      { round: "4.",  date: "22. 8. 2026",  time: "14:00", home: "Brumovice/Kobylí",  away: "Kostelec" },
+      { round: "5.",  date: "30. 8. 2026",  time: "13:15", home: "Čejč/Hovorany",     away: "Brumovice/Kobylí" },
+      { round: "7.",  date: "12. 9. 2026",  time: "16:00", home: "Rohatec B",         away: "Brumovice/Kobylí" },
+      { round: "8.",  date: "19. 9. 2026",  time: "10:30", home: "Brumovice/Kobylí",  away: "Kyjov B" },
+      { round: "9.",  date: "26. 9. 2026",  time: "13:15", home: "Zaječí",            away: "Brumovice/Kobylí" },
       { round: "10.", date: "3. 10. 2026",  time: "12:45", home: "Vacenovice",        away: "Brumovice/Kobylí" },
-      { round: "11.", date: "11. 10. 2026", time: "12:45", home: "Brumovice/Kobylí",  away: "Ždánice" },
-      { round: "12.", date: "18. 10. 2026", time: "12:15", home: "Ježov/Žádovice",    away: "Brumovice/Kobylí" },
-      { round: "13.", date: "25. 10. 2026", time: "12:15", home: "Brumovice/Kobylí",  away: "Bučovice B" },
-      { round: "1.",  date: "1. 11. 2026",  time: "11:45", home: "Rakvice",           away: "Brumovice/Kobylí" },
-      { round: "2.",  date: "8. 11. 2026",  time: "11:45", home: "Brumovice/Kobylí",  away: "Charvátská Nová Ves" },
+      { round: "11.", date: "10. 10. 2026", time: "10:30", home: "Brumovice/Kobylí",  away: "Ždánice" },
+      { round: "12.", date: "17. 10. 2026", time: "10:30", home: "Ježov/Žádovice",    away: "Brumovice/Kobylí" },
+      { round: "13.", date: "24. 10. 2026", time: "10:30", home: "Brumovice/Kobylí",  away: "Bučovice B" },
+      { round: "1.",  date: "31. 10. 2026", time: "11:45", home: "Rakvice",           away: "Brumovice/Kobylí" },
+      { round: "2.",  date: "7. 11. 2026",  time: "10:30", home: "Brumovice/Kobylí",  away: "Charvátská Nová Ves" },
     ],
   },
 };
