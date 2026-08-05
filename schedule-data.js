@@ -1,4 +1,4 @@
-// Rozpis podzim 2026 – staženo z fotbal.cz (muži i dorost aktualizováno 30. 7. 2026 po hlášenkách). home/away = přesně jak na webu.
+// Rozpis podzim 2026 – staženo z fotbal.cz (aktualizováno 5. 8. 2026). home/away = přesně jak na webu.
 window.DEFAULT_SCHEDULE = {
   muzi: {
     team: "TJ Sokol Brumovice",
@@ -30,7 +30,7 @@ window.DEFAULT_SCHEDULE = {
       { round: "5.",  date: "30. 8. 2026",  time: "13:15", home: "Čejč/Hovorany",     away: "Brumovice/Kobylí" },
       { round: "7.",  date: "12. 9. 2026",  time: "16:00", home: "Rohatec B",         away: "Brumovice/Kobylí" },
       { round: "8.",  date: "19. 9. 2026",  time: "10:30", home: "Brumovice/Kobylí",  away: "Kyjov B" },
-      { round: "9.",  date: "26. 9. 2026",  time: "13:15", home: "Zaječí",            away: "Brumovice/Kobylí" },
+      { round: "9.",  date: "27. 9. 2026",  time: "13:15", home: "Zaječí",            away: "Brumovice/Kobylí" },
       { round: "10.", date: "3. 10. 2026",  time: "12:45", home: "Vacenovice",        away: "Brumovice/Kobylí" },
       { round: "11.", date: "10. 10. 2026", time: "10:30", home: "Brumovice/Kobylí",  away: "Ždánice" },
       { round: "12.", date: "17. 10. 2026", time: "10:30", home: "Ježov/Žádovice",    away: "Brumovice/Kobylí" },
