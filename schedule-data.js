@@ -1,4 +1,4 @@
-// Rozpis podzim 2026 – staženo z fotbal.cz (aktualizováno 5. 8. 2026). home/away = přesně jak na webu.
+// Rozpis podzim 2026 – staženo z fotbal.cz (aktualizováno 6. 8. 2026). home/away = přesně jak na webu.
 window.DEFAULT_SCHEDULE = {
   muzi: {
     team: "TJ Sokol Brumovice",
@@ -11,7 +11,7 @@ window.DEFAULT_SCHEDULE = {
       { round: "6.",  date: "6. 9. 2026",   time: "16:00", home: "Přítluky/Lednice B",   away: "TJ Sokol Brumovice" },
       { round: "7.",  date: "13. 9. 2026",  time: "16:00", home: "TJ Sokol Brumovice",   away: "Bořetice/V.Pavlovice B" },
       { round: "8.",  date: "20. 9. 2026",  time: "10:00", home: "FK Valtice-Břeclav",   away: "TJ Sokol Brumovice" },
-      { round: "9.",  date: "27. 9. 2026",  time: "15:30", home: "TJ Sokol Brumovice",   away: "Charvátská Nová Ves" },
+      { round: "9.",  date: "26. 9. 2026",  time: "15:30", home: "TJ Sokol Brumovice",   away: "Charvátská Nová Ves" },
       { round: "10.", date: "4. 10. 2026",  time: "15:00", home: "TJ Sokol Šitbořice",   away: "TJ Sokol Brumovice" },
       { round: "11.", date: "11. 10. 2026", time: "15:00", home: "TJ Sokol Brumovice",   away: "TJ Sokol Kobylí" },
       { round: "12.", date: "18. 10. 2026", time: "14:30", home: "TJ Sokol Brumovice",   away: "Křepice/Nikolčice" },
