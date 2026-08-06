@@ -1070,6 +1070,111 @@
     }
   }
 
+  /* ---------- LOUČENÍ (odchody hráčů) ---------- */
+  function drawPhotoCard(c, x, y, cw, ch, p, colors) {
+    const r = Math.min(30, cw * 0.07);
+    // podklad + stín
+    c.save();
+    c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 26; c.shadowOffsetY = 10;
+    roundRect(c, x, y, cw, ch, r); c.fillStyle = "#ffffff"; c.fill();
+    c.restore();
+    // fotka cover-crop uvnitř karty + spodní gradient
+    c.save();
+    roundRect(c, x, y, cw, ch, r); c.clip();
+    const img = p.photo;
+    if (isReady(img)) {
+      const ratio = img.naturalWidth / img.naturalHeight, cr = cw / ch;
+      let dw, dh;
+      if (ratio > cr) { dh = ch; dw = ch * ratio; } else { dw = cw; dh = cw / ratio; }
+      const dx = x + (cw - dw) / 2;
+      const f = (p.offsetY != null) ? p.offsetY : 0.4;
+      c.drawImage(img, dx, y + (ch - dh) * f, dw, dh);
+    } else {
+      c.fillStyle = shade(colors.secondary, -6); c.fillRect(x, y, cw, ch);
+      c.fillStyle = hexToRgba(colors.text, 0.4); c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = "700 " + (cw * 0.08) + "px " + FONT; c.fillText("Nahraj fotku", x + cw / 2, y + ch / 2);
+      c.textAlign = "left"; c.textBaseline = "alphabetic";
+    }
+    const gh = ch * 0.46;
+    const g = c.createLinearGradient(0, y + ch - gh, 0, y + ch);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.85)");
+    c.fillStyle = g; c.fillRect(x, y + ch - gh, cw, gh);
+    c.restore();
+    // rámeček v barvě týmu
+    roundRect(c, x, y, cw, ch, r); c.lineWidth = Math.max(4, cw * 0.02); c.strokeStyle = colors.primary; c.stroke();
+    // jméno + poznámka (odspodu nahoru)
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    let by = y + ch - Math.max(18, cw * 0.06);
+    const note = (p.note || "").trim();
+    if (note) {
+      const noteSize = Math.min(cw * 0.055, 26);
+      c.fillStyle = "#ffffff"; c.globalAlpha = 0.9; c.font = "700 " + noteSize + "px " + FONT;
+      c.fillText(note, x + cw / 2, by); c.globalAlpha = 1;
+      by -= noteSize + 10;
+    }
+    const name = (p.name || "").toUpperCase();
+    if (name) {
+      const nameSize = fitFont(c, name, cw * 0.9, Math.min(cw * 0.12, 54), "900", 18);
+      c.save(); c.shadowColor = "rgba(0,0,0,0.65)"; c.shadowBlur = 12;
+      c.fillStyle = "#ffffff"; c.font = "900 " + nameSize + "px " + FONT;
+      c.fillText(name, x + cw / 2, by); c.restore();
+    }
+  }
+
+  function renderFarewell(c, w, h, model) {
+    const fw = model.farewell || {}, colors = model.colors, tx = colors.text;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+
+    let y = isStory ? 140 : 64;
+    y = drawTeamBadge(c, cx, y, model);
+    y += isStory ? 26 : 20;
+
+    c.textAlign = "center"; c.textBaseline = "top"; c.fillStyle = tx;
+    const title = (fw.title || "").toUpperCase();
+    if (title) {
+      const ts = fitFont(c, title, w * 0.88, isStory ? 84 : 74, "900", 34);
+      c.font = "900 " + ts + "px " + FONT;
+      for (const ln of wrapLines(c, title, w * 0.88)) { c.fillText(ln, cx, y); y += ts + 6; }
+    }
+    y += 10; c.strokeStyle = colors.primary; c.lineWidth = 5;
+    c.beginPath(); c.moveTo(cx - 70, y); c.lineTo(cx + 70, y); c.stroke(); y += 22;
+
+    const sub = (fw.subtitle || "").trim();
+    if (sub) {
+      c.fillStyle = tx; c.globalAlpha = 0.85; const ss = isStory ? 34 : 30;
+      c.font = "500 " + ss + "px " + FONT;
+      for (const ln of wrapLines(c, sub, w * 0.8)) { c.fillText(ln, cx, y); y += ss + 6; }
+      c.globalAlpha = 1;
+    }
+    c.textAlign = "left"; c.textBaseline = "alphabetic";
+
+    const players = (fw.players || []).filter(p => (p.name || "").trim() || isReady(p.photo));
+    const n = players.length;
+    const topArea = y + (isStory ? 30 : 24);
+    const bottomArea = h - (isStory ? 150 : 96);
+    const areaH = bottomArea - topArea, pad = w * 0.05;
+
+    if (!n) {
+      c.fillStyle = hexToRgba(tx, 0.5); c.textAlign = "center"; c.textBaseline = "middle";
+      c.font = "700 34px " + FONT; c.fillText("Přidej odcházející hráče (vlevo) a nahraj fotky", cx, topArea + areaH / 2);
+      c.textAlign = "left"; c.textBaseline = "alphabetic";
+      drawFooter(c, w, h, model); return;
+    }
+
+    const gap = w * 0.035;
+    const cols = isStory ? 1 : n, rows = isStory ? n : 1;
+    const cw = (w - pad * 2 - gap * (cols - 1)) / cols;
+    let ch = (areaH - gap * (rows - 1)) / rows;
+    ch = Math.max(cw * 0.9, Math.min(ch, cw * 1.35));
+    const gridW = cw * cols + gap * (cols - 1), gridH = ch * rows + gap * (rows - 1);
+    const startX = cx - gridW / 2, startY = topArea + Math.max(0, (areaH - gridH) / 2);
+    for (let i = 0; i < n; i++) {
+      const col = i % cols, r = Math.floor(i / cols);
+      drawPhotoCard(c, startX + col * (cw + gap), startY + r * (ch + gap), cw, ch, players[i], colors);
+    }
+    drawFooter(c, w, h, model);
+  }
+
   function render(c, model) {
     const w = model.canvasW || c.canvas.width, h = model.canvasH || c.canvas.height;
     c.clearRect(0, 0, w, h);
@@ -1082,6 +1187,7 @@
     else if (model.tpl === "schedule") renderSchedule(c, w, h, model);
     else if (model.tpl === "lineup") renderLineup(c, w, h, model);
     else if (model.tpl === "roster") renderRosterSeason(c, w, h, model);
+    else if (model.tpl === "farewell") renderFarewell(c, w, h, model);
   }
 
   global.Poster = { render: render, FONT: FONT, drawAvatar: drawAvatar };

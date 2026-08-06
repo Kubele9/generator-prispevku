@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-06-29" />
+<meta name="app-version" content="2026-08-06-30" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -83,6 +83,13 @@
   .rd-staff-row input { flex: 1; }
   .rd-staff-row .lu-del { flex: 0 0 auto; }
   .lu-empty { color: var(--muted); font-size: 13px; padding: 6px 0 10px; }
+  .fw-row { border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 10px; background: var(--panel-2); }
+  .fw-row .fw-top { display: flex; gap: 10px; align-items: flex-start; }
+  .fw-row .fw-thumb { flex: 0 0 64px; width: 64px; height: 80px; border-radius: 8px; object-fit: cover; background: var(--panel); border: 1px solid var(--border); cursor: pointer; display: block; }
+  .fw-row .fw-fields { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 6px; }
+  .fw-row .fw-del { flex: 0 0 auto; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 8px 10px; cursor: pointer; }
+  .fw-row .fw-offset { width: 100%; margin-top: 8px; }
+  .fw-row .mini { margin-top: 2px; }
   .tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .seg { display: flex; gap: 6px; }
   .seg button { flex: 1; padding: 9px; background: var(--panel-2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit; }
@@ -140,6 +147,7 @@
       <div class="tab" data-tpl="lineup">Sestava</div>
       <div class="tab" data-tpl="roster">Kádr</div>
       <div class="tab" data-tpl="cover">Úvodní foto</div>
+      <div class="tab" data-tpl="farewell">Loučení</div>
     </div>
 
     <!-- RESULT -->
@@ -321,6 +329,18 @@
       <div class="hint">Vyber <b>Fotku</b> (týmové foto) nebo <b>Čistou šablonu</b> (branded pozadí bez fotky). Fotka i nadpis se drží zvlášť pro <b>Muže</b> a <b>Dorost</b>. Rozměr je 1640×624 px (FB cover). Přepínač Feed/Story se tu nepoužije.</div>
     </div>
 
+    <!-- LOUČENÍ (odchody hráčů) -->
+    <div class="tpl" data-tpl="farewell" style="display:none">
+      <div class="field"><label>Hlavní nadpis</label><input type="text" id="fw_title" value="Děkujeme, chlapci!" /></div>
+      <div class="field"><label>Podtitulek</label><input type="text" id="fw_subtitle" value="Za odvedené výkony děkujeme a přejeme hodně štěstí." /></div>
+      <div class="field">
+        <label>Odcházející hráči</label>
+        <div id="fw_players"></div>
+        <button type="button" class="file-btn" id="fw_add" style="width:100%; margin-top:6px">➕ Přidat hráče</button>
+      </div>
+      <div class="hint">Ke každému hráči nahraj fotku (klidně akční z hřiště – ořízne se do karty) a napiš jméno, případně poznámku (post, roky v klubu…). Fotky se drží zvlášť pro <b>Muže</b> a <b>Dorost</b>. Ideální formát: <b>Feed</b> (2 hráči vedle sebe) nebo <b>Story</b>.</div>
+    </div>
+
     <!-- OPPONENT LIBRARY (result + invite) -->
     <div id="oppSection">
       <div class="section-title">Soupeř &amp; jeho logo</div>
@@ -492,6 +512,7 @@ const state = {
     muzi:   { formation: "4-4-2", starters: [], subs: [] },
     dorost: { formation: "4-4-2", starters: [], subs: [] },
   },
+  farewell: { muzi: { players: [] }, dorost: { players: [] } }, // team -> { players:[{id,name,note,photo,offsetY}] }
 };
 function applyTheme() {
   const t = TEAM_THEME[state.team] || TEAM_THEME.muzi;
@@ -565,6 +586,26 @@ function buildModel() {
     schedule: buildSchedule(),
     lineup: buildLineup(),
     rosterPoster: buildRosterPoster(),
+    farewell: buildFarewell(),
+  };
+}
+
+function curFarewell() {
+  if (!state.farewell[state.team]) state.farewell[state.team] = { players: [] };
+  if (!state.farewell[state.team].players) state.farewell[state.team].players = [];
+  return state.farewell[state.team];
+}
+function buildFarewell() {
+  const fw = curFarewell();
+  return {
+    title: val("fw_title"),
+    subtitle: val("fw_subtitle"),
+    players: (fw.players || []).map(p => ({
+      name: p.name || "",
+      note: p.note || "",
+      photo: getImg(p.photo),
+      offsetY: (p.offsetY != null) ? p.offsetY : 0.4,
+    })),
   };
 }
 
@@ -749,15 +790,67 @@ document.querySelectorAll("#cv_bg_switch button").forEach(b => b.addEventListene
   b.classList.add("active"); state.coverBg = b.dataset.bg; applyCoverBg(); render();
 }));
 
+/* ---------- Loučení (odchody hráčů) ---------- */
+function renderFarewell() {
+  const box = $("fw_players"); if (!box) return;
+  const list = curFarewell().players; box.innerHTML = "";
+  if (!list.length) { const d = document.createElement("div"); d.className = "lu-empty"; d.textContent = "Zatím žádný hráč. Přidej ho tlačítkem níže."; box.appendChild(d); return; }
+  list.forEach((p, idx) => {
+    const row = document.createElement("div"); row.className = "fw-row";
+    const top = document.createElement("div"); top.className = "fw-top";
+
+    const thumb = document.createElement("img"); thumb.className = "fw-thumb"; thumb.alt = "";
+    thumb.title = "Klikni pro nahrání/změnu fotky";
+    if (p.photo) thumb.src = p.photo; else thumb.style.opacity = "0.4";
+    const file = document.createElement("input"); file.type = "file"; file.accept = "image/*"; file.hidden = true;
+    thumb.addEventListener("click", () => file.click());
+    file.addEventListener("change", e => {
+      const f = e.target.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = () => resizePhoto(r.result, 1000, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); });
+      r.readAsDataURL(f);
+    });
+
+    const fields = document.createElement("div"); fields.className = "fw-fields";
+    const name = document.createElement("input"); name.type = "text"; name.placeholder = "Jméno hráče"; name.value = p.name || "";
+    name.addEventListener("input", () => { p.name = name.value; saveLineup(); render(); });
+    const note = document.createElement("input"); note.type = "text"; note.placeholder = "Poznámka (nepovinné) – např. obránce • 2018–2026"; note.value = p.note || "";
+    note.addEventListener("input", () => { p.note = note.value; saveLineup(); render(); });
+    fields.append(name, note);
+
+    const del = document.createElement("button"); del.type = "button"; del.className = "fw-del"; del.textContent = "✕"; del.title = "Odebrat";
+    del.addEventListener("click", () => { list.splice(idx, 1); saveLineup(); renderFarewell(); render(); });
+
+    top.append(thumb, file, fields, del);
+
+    const off = document.createElement("input"); off.type = "range"; off.min = "0"; off.max = "100"; off.className = "fw-offset";
+    off.value = String(Math.round(((p.offsetY != null) ? p.offsetY : 0.4) * 100));
+    off.title = "Svislé posunutí fotky (ať je vidět obličej)";
+    off.addEventListener("input", () => { p.offsetY = (+off.value) / 100; render(); });
+    off.addEventListener("change", saveLineup);
+    const offLbl = document.createElement("div"); offLbl.className = "mini"; offLbl.textContent = "Posun fotky v kartě nahoru/dolů (ať je vidět obličej)";
+
+    row.append(top, off, offLbl);
+    box.appendChild(row);
+  });
+}
+function refreshFarewellUI() { renderFarewell(); }
+$("fw_add").addEventListener("click", () => {
+  curFarewell().players.push({ id: newId(), name: "", note: "", photo: null, offsetY: 0.4 });
+  saveLineup(); renderFarewell(); render();
+});
+["fw_title", "fw_subtitle"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
+
 /* ---------- sestava: persistence + UI kádru ---------- */
 const LU_LS = "brumovice_lineup_v1";
 function saveLineup() {
   try {
     localStorage.setItem(LU_LS, JSON.stringify({
-      roster: state.roster, lineup: state.lineup, staff: state.staff,
+      roster: state.roster, lineup: state.lineup, staff: state.staff, farewell: state.farewell,
       meta: {
         title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"), time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
         rd_title: val("rd_title"), rd_season: val("rd_season"),
+        fw_title: val("fw_title"), fw_subtitle: val("fw_subtitle"),
       },
     }));
   } catch (e) { alert("Nepodařilo se uložit kádr – možná je plná paměť prohlížeče (příliš mnoho fotek)."); }
@@ -772,12 +865,15 @@ function loadLineup() {
     }
     if (d.staff) { state.staff.muzi = d.staff.muzi || []; state.staff.dorost = d.staff.dorost || []; }
     if (d.lineup) ["muzi", "dorost"].forEach(t => { if (d.lineup[t]) state.lineup[t] = Object.assign({ formation: "4-4-2", starters: [], subs: [] }, d.lineup[t]); });
+    if (d.farewell) ["muzi", "dorost"].forEach(t => { if (d.farewell[t] && Array.isArray(d.farewell[t].players)) state.farewell[t] = { players: d.farewell[t].players }; });
     if (d.meta) {
       if (d.meta.title) setVal("lu_title", d.meta.title);
       setVal("lu_opp", d.meta.opp || ""); setVal("lu_date", d.meta.date || ""); setVal("lu_time", d.meta.time || "");
       if (d.meta.comp) setVal("lu_comp", d.meta.comp); setVal("lu_coach", d.meta.coach || "");
       if (d.meta.rd_title) setVal("rd_title", d.meta.rd_title);
       if (d.meta.rd_season) setVal("rd_season", d.meta.rd_season);
+      if (d.meta.fw_title) setVal("fw_title", d.meta.fw_title);
+      if (d.meta.fw_subtitle) setVal("fw_subtitle", d.meta.fw_subtitle);
     }
   } catch (e) {}
 }
@@ -1046,6 +1142,7 @@ document.querySelectorAll("#teamSwitch button").forEach(btn => btn.addEventListe
   autoLogoFromName();
   refreshCoverUI();
   refreshLineupUI();
+  refreshFarewellUI();
   save(); render();
 }));
 
@@ -1053,7 +1150,7 @@ document.querySelectorAll("#tabs .tab").forEach(tab => tab.addEventListener("cli
   document.querySelectorAll("#tabs .tab").forEach(t => t.classList.remove("active"));
   tab.classList.add("active"); state.tpl = tab.dataset.tpl;
   document.querySelectorAll(".tpl").forEach(el => el.style.display = el.dataset.tpl === state.tpl ? "block" : "none");
-  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup" || state.tpl === "roster") ? "none" : "block";
+  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup" || state.tpl === "roster" || state.tpl === "farewell") ? "none" : "block";
   $("formatToggle").style.display = state.tpl === "cover" ? "none" : "";
   render();
 }));
@@ -1105,7 +1202,7 @@ function autoLogoFromName() {
 ["r_home", "r_away", "i_opp"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", autoLogoFromName); });
 
 function currentFileName() {
-  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "roster" ? "kadr" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
+  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "roster" ? "kadr" : state.tpl === "cover" ? "uvodni-foto" : state.tpl === "farewell" ? "louceni" : "oznameni";
   const suffix = state.tpl === "cover" ? "fb" : state.format === "print" ? "tisk-A4" : state.format;
   return "brumovice-" + name + "-" + suffix + ".png";
 }
@@ -1201,6 +1298,13 @@ function buildAiContext() {
     const parts = [line("gk", "Brankáři"), line("def", "Obránci"), line("mid", "Záložníci"), line("fwd", "Útočníci")].filter(Boolean);
     const staff = (rp.staff || []).map(s => s.name + (s.role ? " (" + s.role + ")" : ""));
     return `Typ příspěvku: KÁDR NA SEZÓNU ${rp.season} (${team}). ${parts.join(". ")}.` + (staff.length ? ` Realizační tým: ${staff.join(", ")}.` : "");
+  }
+  if (state.tpl === "farewell") {
+    const fw = m.farewell;
+    const names = (fw.players || []).map(p => p.name + (p.note ? " (" + p.note + ")" : "")).filter(s => s.trim());
+    return `Typ příspěvku: LOUČENÍ / ODCHOD HRÁČŮ (${team}). Nadpis: ${fw.title}. Podtitulek: ${fw.subtitle}.`
+      + (names.length ? ` Odcházející hráči: ${names.join(", ")}.` : "")
+      + " Napiš vděčný, lidský rozlučkový text – poděkuj za odvedenou práci a popřej hodně štěstí.";
   }
   const a = m.announce;
   return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;
@@ -1324,6 +1428,17 @@ load();
 loadAi();
 loadLineup();
 refreshLineupUI();
+// při prvním použití připrav 2 prázdné řádky pro odcházející hráče
+["muzi", "dorost"].forEach(t => {
+  if (!state.farewell[t]) state.farewell[t] = { players: [] };
+  if (!state.farewell[t].players.length) {
+    state.farewell[t].players = [
+      { id: newId(), name: "", note: "", photo: null, offsetY: 0.4 },
+      { id: newId(), name: "", note: "", photo: null, offsetY: 0.4 },
+    ];
+  }
+});
+refreshFarewellUI();
 // nastav aktivní tým + téma podle uloženého stavu
 document.querySelectorAll("#teamSwitch button").forEach(b => b.classList.toggle("active", b.dataset.team === state.team));
 applyTheme();
