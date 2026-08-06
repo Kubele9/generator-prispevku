@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-06-28" />
+<meta name="app-version" content="2026-08-06-29" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -426,11 +426,17 @@
   </div>
 </div>
 
-<script src="logo-data.js"></script>
-<script src="opponents-data.js"></script>
-<script src="cover-data.js"></script>
-<script src="schedule-data.js"></script>
-<script src="render.js"></script>
+<script>
+/* Načti datové a render skripty s cache-bustingem podle verze appky,
+   ať prohlížeč (a CDN) nikdy nedrží starý rozpis/data. Verzi drž jen v meta tagu app-version. */
+(function () {
+  var m = document.querySelector('meta[name="app-version"]');
+  var v = (m && m.getAttribute("content")) || Date.now();
+  ["logo-data.js", "opponents-data.js", "cover-data.js", "schedule-data.js", "render.js"].forEach(function (s) {
+    document.write('<script src="' + s + '?v=' + encodeURIComponent(v) + '"><\/script>');
+  });
+})();
+</script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
