@@ -343,6 +343,10 @@
     const a = model.announce, colors = model.colors, tx = colors.text;
     const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
 
+    // varianta s fotkami hráčů (oznámení o odchodech apod.)
+    const players = (a.players || []).filter(p => (p.name || "").trim() || isReady(p.photo));
+    if (players.length) { renderAnnouncePhotos(c, w, h, model, players); return; }
+
     let y = isStory ? 150 : 72;
     y = drawTeamBadge(c, cx, y, model);
 
@@ -1121,16 +1125,20 @@
     }
   }
 
-  function renderFarewell(c, w, h, model) {
-    const fw = model.farewell || {}, colors = model.colors, tx = colors.text;
+  function renderAnnouncePhotos(c, w, h, model, players) {
+    const a = model.announce || {}, colors = model.colors, tx = colors.text;
     const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
 
     let y = isStory ? 140 : 64;
     y = drawTeamBadge(c, cx, y, model);
-    y += isStory ? 26 : 20;
+    y += isStory ? 22 : 16;
 
-    c.textAlign = "center"; c.textBaseline = "top"; c.fillStyle = tx;
-    const title = (fw.title || "").toUpperCase();
+    c.textAlign = "center"; c.textBaseline = "top";
+    const eyebrow = (a.eyebrow || "").trim();
+    if (eyebrow) { c.fillStyle = colors.primary; c.font = "800 28px " + FONT; c.fillText(eyebrow.toUpperCase(), cx, y); y += 40; }
+
+    c.fillStyle = tx;
+    const title = (a.title || "").toUpperCase();
     if (title) {
       const ts = fitFont(c, title, w * 0.88, isStory ? 84 : 74, "900", 34);
       c.font = "900 " + ts + "px " + FONT;
@@ -1139,7 +1147,7 @@
     y += 10; c.strokeStyle = colors.primary; c.lineWidth = 5;
     c.beginPath(); c.moveTo(cx - 70, y); c.lineTo(cx + 70, y); c.stroke(); y += 22;
 
-    const sub = (fw.subtitle || "").trim();
+    const sub = (a.text || "").trim();
     if (sub) {
       c.fillStyle = tx; c.globalAlpha = 0.85; const ss = isStory ? 34 : 30;
       c.font = "500 " + ss + "px " + FONT;
@@ -1148,7 +1156,6 @@
     }
     c.textAlign = "left"; c.textBaseline = "alphabetic";
 
-    const players = (fw.players || []).filter(p => (p.name || "").trim() || isReady(p.photo));
     const n = players.length;
     const topArea = y + (isStory ? 30 : 24);
     const bottomArea = h - (isStory ? 150 : 96);
@@ -1187,7 +1194,6 @@
     else if (model.tpl === "schedule") renderSchedule(c, w, h, model);
     else if (model.tpl === "lineup") renderLineup(c, w, h, model);
     else if (model.tpl === "roster") renderRosterSeason(c, w, h, model);
-    else if (model.tpl === "farewell") renderFarewell(c, w, h, model);
   }
 
   global.Poster = { render: render, FONT: FONT, drawAvatar: drawAvatar };

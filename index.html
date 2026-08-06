@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-06-30" />
+<meta name="app-version" content="2026-08-06-31" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -147,7 +147,6 @@
       <div class="tab" data-tpl="lineup">Sestava</div>
       <div class="tab" data-tpl="roster">Kádr</div>
       <div class="tab" data-tpl="cover">Úvodní foto</div>
-      <div class="tab" data-tpl="farewell">Loučení</div>
     </div>
 
     <!-- RESULT -->
@@ -193,6 +192,12 @@
       <div class="field"><label>Malý nadpis (nepovinné)</label><input type="text" id="a_eyebrow" value="Sokol Brumovice" /></div>
       <div class="field"><label>Hlavní nadpis</label><input type="text" id="a_title" value="Děkujeme za podporu!" /></div>
       <div class="field"><label>Text</label><textarea id="a_text">Skvělá sezóna je za námi. Těšíme se na vás v té další.</textarea></div>
+      <div class="field">
+        <label>Fotky hráčů (nepovinné – např. oznámení o odchodech)</label>
+        <div id="fw_players"></div>
+        <button type="button" class="file-btn" id="fw_add" style="width:100%; margin-top:6px">➕ Přidat hráče s fotkou</button>
+        <div class="hint">Když přidáš fotky, oznámení se vykreslí jako <b>karty s fotkami hráčů</b> (jméno + poznámka) – jako rozlučka s odcházejícími hráči. Nadpis a text výše se použijí jako titulek a podtitulek. Bez fotek zůstane klasické textové oznámení. Fotky se drží zvlášť pro muže/dorost.</div>
+      </div>
     </div>
 
     <!-- SOUPEŘI -->
@@ -327,18 +332,6 @@
         </div>
       </div>
       <div class="hint">Vyber <b>Fotku</b> (týmové foto) nebo <b>Čistou šablonu</b> (branded pozadí bez fotky). Fotka i nadpis se drží zvlášť pro <b>Muže</b> a <b>Dorost</b>. Rozměr je 1640×624 px (FB cover). Přepínač Feed/Story se tu nepoužije.</div>
-    </div>
-
-    <!-- LOUČENÍ (odchody hráčů) -->
-    <div class="tpl" data-tpl="farewell" style="display:none">
-      <div class="field"><label>Hlavní nadpis</label><input type="text" id="fw_title" value="Děkujeme, chlapci!" /></div>
-      <div class="field"><label>Podtitulek</label><input type="text" id="fw_subtitle" value="Za odvedené výkony děkujeme a přejeme hodně štěstí." /></div>
-      <div class="field">
-        <label>Odcházející hráči</label>
-        <div id="fw_players"></div>
-        <button type="button" class="file-btn" id="fw_add" style="width:100%; margin-top:6px">➕ Přidat hráče</button>
-      </div>
-      <div class="hint">Ke každému hráči nahraj fotku (klidně akční z hřiště – ořízne se do karty) a napiš jméno, případně poznámku (post, roky v klubu…). Fotky se drží zvlášť pro <b>Muže</b> a <b>Dorost</b>. Ideální formát: <b>Feed</b> (2 hráči vedle sebe) nebo <b>Story</b>.</div>
     </div>
 
     <!-- OPPONENT LIBRARY (result + invite) -->
@@ -569,7 +562,7 @@ function buildModel() {
       date: val("i_date"), time: val("i_time"),
       venue: val("i_venue"), comp: val("i_comp"), title: val("i_title"),
     },
-    announce: { eyebrow: val("a_eyebrow"), title: val("a_title"), text: val("a_text") },
+    announce: { eyebrow: val("a_eyebrow"), title: val("a_title"), text: val("a_text"), players: buildAnnouncePhotos() },
     cover: {
       title: val("cv_title"), subtitle: val("cv_subtitle"),
       photo: state.coverImg[state.team], pos: state.coverPos, offsetY: state.coverOffsetY, bg: state.coverBg,
@@ -586,7 +579,6 @@ function buildModel() {
     schedule: buildSchedule(),
     lineup: buildLineup(),
     rosterPoster: buildRosterPoster(),
-    farewell: buildFarewell(),
   };
 }
 
@@ -595,18 +587,14 @@ function curFarewell() {
   if (!state.farewell[state.team].players) state.farewell[state.team].players = [];
   return state.farewell[state.team];
 }
-function buildFarewell() {
+function buildAnnouncePhotos() {
   const fw = curFarewell();
-  return {
-    title: val("fw_title"),
-    subtitle: val("fw_subtitle"),
-    players: (fw.players || []).map(p => ({
-      name: p.name || "",
-      note: p.note || "",
-      photo: getImg(p.photo),
-      offsetY: (p.offsetY != null) ? p.offsetY : 0.4,
-    })),
-  };
+  return (fw.players || []).map(p => ({
+    name: p.name || "",
+    note: p.note || "",
+    photo: getImg(p.photo),
+    offsetY: (p.offsetY != null) ? p.offsetY : 0.4,
+  }));
 }
 
 function buildSchedule() {
@@ -839,7 +827,6 @@ $("fw_add").addEventListener("click", () => {
   curFarewell().players.push({ id: newId(), name: "", note: "", photo: null, offsetY: 0.4 });
   saveLineup(); renderFarewell(); render();
 });
-["fw_title", "fw_subtitle"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
 
 /* ---------- sestava: persistence + UI kádru ---------- */
 const LU_LS = "brumovice_lineup_v1";
@@ -850,7 +837,6 @@ function saveLineup() {
       meta: {
         title: val("lu_title"), opp: val("lu_opp"), date: val("lu_date"), time: val("lu_time"), comp: val("lu_comp"), coach: val("lu_coach"),
         rd_title: val("rd_title"), rd_season: val("rd_season"),
-        fw_title: val("fw_title"), fw_subtitle: val("fw_subtitle"),
       },
     }));
   } catch (e) { alert("Nepodařilo se uložit kádr – možná je plná paměť prohlížeče (příliš mnoho fotek)."); }
@@ -872,8 +858,6 @@ function loadLineup() {
       if (d.meta.comp) setVal("lu_comp", d.meta.comp); setVal("lu_coach", d.meta.coach || "");
       if (d.meta.rd_title) setVal("rd_title", d.meta.rd_title);
       if (d.meta.rd_season) setVal("rd_season", d.meta.rd_season);
-      if (d.meta.fw_title) setVal("fw_title", d.meta.fw_title);
-      if (d.meta.fw_subtitle) setVal("fw_subtitle", d.meta.fw_subtitle);
     }
   } catch (e) {}
 }
@@ -1150,7 +1134,7 @@ document.querySelectorAll("#tabs .tab").forEach(tab => tab.addEventListener("cli
   document.querySelectorAll("#tabs .tab").forEach(t => t.classList.remove("active"));
   tab.classList.add("active"); state.tpl = tab.dataset.tpl;
   document.querySelectorAll(".tpl").forEach(el => el.style.display = el.dataset.tpl === state.tpl ? "block" : "none");
-  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup" || state.tpl === "roster" || state.tpl === "farewell") ? "none" : "block";
+  $("oppSection").style.display = (state.tpl === "announce" || state.tpl === "souperi" || state.tpl === "schedule" || state.tpl === "cover" || state.tpl === "lineup" || state.tpl === "roster") ? "none" : "block";
   $("formatToggle").style.display = state.tpl === "cover" ? "none" : "";
   render();
 }));
@@ -1202,7 +1186,7 @@ function autoLogoFromName() {
 ["r_home", "r_away", "i_opp"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", autoLogoFromName); });
 
 function currentFileName() {
-  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "roster" ? "kadr" : state.tpl === "cover" ? "uvodni-foto" : state.tpl === "farewell" ? "louceni" : "oznameni";
+  const name = state.tpl === "result" ? "vysledek" : state.tpl === "invite" ? "pozvanka" : state.tpl === "souperi" ? "souperi" : state.tpl === "schedule" ? "rozpis" : state.tpl === "lineup" ? "sestava" : state.tpl === "roster" ? "kadr" : state.tpl === "cover" ? "uvodni-foto" : "oznameni";
   const suffix = state.tpl === "cover" ? "fb" : state.format === "print" ? "tisk-A4" : state.format;
   return "brumovice-" + name + "-" + suffix + ".png";
 }
@@ -1299,14 +1283,13 @@ function buildAiContext() {
     const staff = (rp.staff || []).map(s => s.name + (s.role ? " (" + s.role + ")" : ""));
     return `Typ příspěvku: KÁDR NA SEZÓNU ${rp.season} (${team}). ${parts.join(". ")}.` + (staff.length ? ` Realizační tým: ${staff.join(", ")}.` : "");
   }
-  if (state.tpl === "farewell") {
-    const fw = m.farewell;
-    const names = (fw.players || []).map(p => p.name + (p.note ? " (" + p.note + ")" : "")).filter(s => s.trim());
-    return `Typ příspěvku: LOUČENÍ / ODCHOD HRÁČŮ (${team}). Nadpis: ${fw.title}. Podtitulek: ${fw.subtitle}.`
-      + (names.length ? ` Odcházející hráči: ${names.join(", ")}.` : "")
+  const a = m.announce;
+  const fwNames = (a.players || []).map(p => p.name + (p.note ? " (" + p.note + ")" : "")).filter(s => s.trim());
+  if (fwNames.length) {
+    return `Typ příspěvku: OZNÁMENÍ s fotkami hráčů – nejspíš LOUČENÍ / ODCHOD HRÁČŮ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`
+      + ` Hráči: ${fwNames.join(", ")}.`
       + " Napiš vděčný, lidský rozlučkový text – poděkuj za odvedenou práci a popřej hodně štěstí.";
   }
-  const a = m.announce;
   return `Typ příspěvku: OZNÁMENÍ (${team}). Nadpis: ${a.title}. Text: ${a.text}.`;
 }
 // Gemini: nejdřív přes serverovou funkci klubu (bez klíče, funguje všude),
