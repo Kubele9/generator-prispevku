@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-07-39" />
+<meta name="app-version" content="2026-08-07-40" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -465,7 +465,7 @@
 (function () {
   var m = document.querySelector('meta[name="app-version"]');
   var v = (m && m.getAttribute("content")) || Date.now();
-  ["logo-data.js", "opponents-data.js", "cover-data.js", "schedule-data.js", "render.js"].forEach(function (s) {
+  ["logo-data.js", "opponents-data.js", "cover-data.js", "schedule-data.js", "render2.js"].forEach(function (s) {
     document.write('<script src="' + s + '?v=' + encodeURIComponent(v) + '"><\/script>');
   });
 })();
