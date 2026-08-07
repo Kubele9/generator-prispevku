@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-06-31" />
+<meta name="app-version" content="2026-08-07-32" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -795,7 +795,7 @@ function renderFarewell() {
     file.addEventListener("change", e => {
       const f = e.target.files[0]; if (!f) return;
       const r = new FileReader();
-      r.onload = () => resizePhoto(r.result, 1000, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); });
+      r.onload = () => resizePhoto(r.result, 1000, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); }, { mime: "image/jpeg", quality: 0.85 });
       r.readAsDataURL(f);
     });
 
@@ -862,16 +862,21 @@ function loadLineup() {
   } catch (e) {}
 }
 function newId() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-// zmenši fotku na čtverec (cover) kvůli velikosti localStorage a rychlosti
-function resizePhoto(dataURL, size, cb) {
+// zmenši fotku kvůli velikosti localStorage a rychlosti.
+// opts.mime: "image/png" (výchozí, zachová průhlednost výřezů) nebo "image/jpeg" (fotky – mnohem menší)
+function resizePhoto(dataURL, size, cb, opts) {
+  const mime = (opts && opts.mime) || "image/png";
+  const quality = (opts && opts.quality) || 0.85;
   const im = new Image();
   im.onload = () => {
-    // zachovej poměr stran i průhlednost (výřezy hráčů bez pozadí) -> PNG
     const scale = Math.min(size / im.width, size / im.height, 1);
     const w = Math.max(1, Math.round(im.width * scale)), h = Math.max(1, Math.round(im.height * scale));
     const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
-    cv.getContext("2d").drawImage(im, 0, 0, w, h);
-    cb(cv.toDataURL("image/png"));
+    const ctx = cv.getContext("2d");
+    // JPEG neumí průhlednost -> podkresli bílou, ať není černé pozadí
+    if (mime === "image/jpeg") { ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(im, 0, 0, w, h);
+    cb(cv.toDataURL(mime, quality));
   };
   im.src = dataURL;
 }
