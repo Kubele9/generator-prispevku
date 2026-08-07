@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-07-38" />
+<meta name="app-version" content="2026-08-07-39" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -439,6 +439,26 @@
   </div>
 </div>
 
+<script>
+/* Jednorázový tvrdý reset: vyhodí zaseknutý starý service worker + smaže cache,
+   aby se přestal servírovat starý render.js. Klíč (token) zajistí, že se to udělá jen jednou. */
+(function () {
+  try {
+    if (!("serviceWorker" in navigator)) return;
+    var KEY = "__hardreset_2026-08-07-39";
+    if (localStorage.getItem(KEY)) return;
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      var had = regs.length > 0;
+      Promise.all(regs.map(function (r) { return r.unregister(); })).then(function () {
+        if (window.caches) { return caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }); }
+      }).then(function () {
+        localStorage.setItem(KEY, "1");
+        if (had) location.reload();
+      });
+    }).catch(function () {});
+  } catch (e) {}
+})();
+</script>
 <script>
 /* Načti datové a render skripty s cache-bustingem podle verze appky,
    ať prohlížeč (a CDN) nikdy nedrží starý rozpis/data. Verzi drž jen v meta tagu app-version. */
