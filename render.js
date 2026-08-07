@@ -1090,9 +1090,11 @@
       const ratio = img.naturalWidth / img.naturalHeight, cr = cw / ch;
       let dw, dh;
       if (ratio > cr) { dh = ch; dw = ch * ratio; } else { dw = cw; dh = cw / ratio; }
-      const dx = x + (cw - dw) / 2;
-      const f = (p.offsetY != null) ? p.offsetY : 0.4;
-      c.drawImage(img, dx, y + (ch - dh) * f, dw, dh);
+      const zoom = (p.zoom != null) ? p.zoom : 1;
+      dw *= zoom; dh *= zoom;
+      const fx = (p.offsetX != null) ? p.offsetX : 0.5;
+      const fy = (p.offsetY != null) ? p.offsetY : 0.4;
+      c.drawImage(img, x + (cw - dw) * fx, y + (ch - dh) * fy, dw, dh);
     } else {
       c.fillStyle = shade(colors.secondary, -6); c.fillRect(x, y, cw, ch);
       c.fillStyle = hexToRgba(colors.text, 0.4); c.textAlign = "center"; c.textBaseline = "middle";

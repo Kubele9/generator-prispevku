@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-07-32" />
+<meta name="app-version" content="2026-08-07-33" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -811,20 +811,37 @@ function renderFarewell() {
 
     top.append(thumb, file, fields, del);
 
+    // svislý posun
     const off = document.createElement("input"); off.type = "range"; off.min = "0"; off.max = "100"; off.className = "fw-offset";
     off.value = String(Math.round(((p.offsetY != null) ? p.offsetY : 0.4) * 100));
     off.title = "Svislé posunutí fotky (ať je vidět obličej)";
     off.addEventListener("input", () => { p.offsetY = (+off.value) / 100; render(); });
     off.addEventListener("change", saveLineup);
-    const offLbl = document.createElement("div"); offLbl.className = "mini"; offLbl.textContent = "Posun fotky v kartě nahoru/dolů (ať je vidět obličej)";
+    const offLbl = document.createElement("div"); offLbl.className = "mini"; offLbl.textContent = "↕ Posun nahoru/dolů";
 
-    row.append(top, off, offLbl);
+    // vodorovný posun
+    const offx = document.createElement("input"); offx.type = "range"; offx.min = "0"; offx.max = "100"; offx.className = "fw-offset";
+    offx.value = String(Math.round(((p.offsetX != null) ? p.offsetX : 0.5) * 100));
+    offx.title = "Vodorovné posunutí fotky";
+    offx.addEventListener("input", () => { p.offsetX = (+offx.value) / 100; render(); });
+    offx.addEventListener("change", saveLineup);
+    const offxLbl = document.createElement("div"); offxLbl.className = "mini"; offxLbl.textContent = "↔ Posun doleva/doprava";
+
+    // zoom (přiblížení) 100–300 % => 1.0–3.0
+    const zoom = document.createElement("input"); zoom.type = "range"; zoom.min = "100"; zoom.max = "300"; zoom.step = "5"; zoom.className = "fw-offset";
+    zoom.value = String(Math.round(((p.zoom != null) ? p.zoom : 1) * 100));
+    zoom.title = "Přiblížení fotky";
+    zoom.addEventListener("input", () => { p.zoom = (+zoom.value) / 100; render(); });
+    zoom.addEventListener("change", saveLineup);
+    const zoomLbl = document.createElement("div"); zoomLbl.className = "mini"; zoomLbl.textContent = "🔍 Přiblížení (zoom)";
+
+    row.append(top, off, offLbl, offx, offxLbl, zoom, zoomLbl);
     box.appendChild(row);
   });
 }
 function refreshFarewellUI() { renderFarewell(); }
 $("fw_add").addEventListener("click", () => {
-  curFarewell().players.push({ id: newId(), name: "", note: "", photo: null, offsetY: 0.4 });
+  curFarewell().players.push({ id: newId(), name: "", note: "", photo: null, offsetY: 0.4, offsetX: 0.5, zoom: 1 });
   saveLineup(); renderFarewell(); render();
 });
 
