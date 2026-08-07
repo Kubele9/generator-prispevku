@@ -1206,7 +1206,6 @@
   // plakát s výřezy hráčů: neviditelný rám (ořez) + jméno pod hráčem, bez stínů
   function drawCutoutStage(c, w, h, model, players, colors, topArea, bottomArea, pad, isStory) {
     const n = players.length, cx = w / 2;
-    const light = isLight(colors);
     const nameBandH = isStory ? 128 : 108;
     const zoneTop = topArea + 6;
     const baseY = bottomArea - nameBandH;      // společná linka (nohy)
@@ -1215,15 +1214,6 @@
     const colW = (w - pad * 2 - gap * (n - 1)) / n;
     const groupW = colW * n + gap * (n - 1);
     const startX = cx - groupW / 2;
-
-    // jemná podlahová linka v barvě týmu (jen jako „úroveň", ne stín)
-    c.save();
-    const floor = c.createLinearGradient(0, baseY - 6, 0, baseY + 8);
-    floor.addColorStop(0, hexToRgba(colors.primary, 0));
-    floor.addColorStop(0.5, hexToRgba(colors.primary, light ? 0.85 : 0.75));
-    floor.addColorStop(1, hexToRgba(colors.primary, 0));
-    c.fillStyle = floor; c.fillRect(pad * 0.6, baseY - 6, w - pad * 1.2, 14);
-    c.restore();
 
     for (let i = 0; i < n; i++) {
       const p = players[i], img = p.photo;
