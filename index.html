@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-07-35" />
+<meta name="app-version" content="2026-08-07-36" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -802,7 +802,7 @@ function renderFarewell() {
           p.cut = cut;
           if (cut) {
             // výřez hráče -> zachovej průhlednost (PNG) a naframuj celou postavu (nohy dolů)
-            p.offsetY = 1; p.offsetX = 0.5; p.zoom = 1;
+            p.offsetY = 0.9; p.offsetX = 0.5; p.zoom = 1;
             resizePhoto(r.result, 900, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); }, { mime: "image/png" });
           } else {
             resizePhoto(r.result, 1000, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); }, { mime: "image/jpeg", quality: 0.85 });
@@ -841,13 +841,13 @@ function renderFarewell() {
     offx.addEventListener("change", saveLineup);
     const offxLbl = document.createElement("div"); offxLbl.className = "mini"; offxLbl.textContent = "↔ Posun doleva/doprava";
 
-    // zoom (přiblížení) 100–300 % => 1.0–3.0
-    const zoom = document.createElement("input"); zoom.type = "range"; zoom.min = "100"; zoom.max = "300"; zoom.step = "5"; zoom.className = "fw-offset";
+    // zoom (přiblížení/zmenšení) 40–300 % => 0.4–3.0
+    const zoom = document.createElement("input"); zoom.type = "range"; zoom.min = "40"; zoom.max = "300"; zoom.step = "5"; zoom.className = "fw-offset";
     zoom.value = String(Math.round(((p.zoom != null) ? p.zoom : 1) * 100));
-    zoom.title = "Přiblížení fotky";
+    zoom.title = "Zvětšení / zmenšení fotky";
     zoom.addEventListener("input", () => { p.zoom = (+zoom.value) / 100; render(); });
     zoom.addEventListener("change", saveLineup);
-    const zoomLbl = document.createElement("div"); zoomLbl.className = "mini"; zoomLbl.textContent = "🔍 Přiblížení (zoom)";
+    const zoomLbl = document.createElement("div"); zoomLbl.className = "mini"; zoomLbl.textContent = "🔍 Zvětšit / zmenšit (zoom)";
 
     row.append(top, off, offLbl, offx, offxLbl, zoom, zoomLbl);
     box.appendChild(row);
