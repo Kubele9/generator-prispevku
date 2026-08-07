@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-07-36" />
+<meta name="app-version" content="2026-08-07-37" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -1498,8 +1498,26 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
 render();
 
 // registrace service workeru (offline režim) – funguje jen přes http(s), ne z file://
+// + automatická aktualizace: jakmile je nová verze SW připravená, převezme řízení a stránka se jednou obnoví
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swReloaded) return; swReloaded = true; location.reload();
+  });
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").then((reg) => {
+      reg.update();
+      if (reg.waiting) reg.waiting.postMessage("skipWaiting");
+      reg.addEventListener("updatefound", () => {
+        const nw = reg.installing;
+        if (nw) nw.addEventListener("statechange", () => {
+          if (nw.state === "installed" && reg.waiting) reg.waiting.postMessage("skipWaiting");
+        });
+      });
+      // občas zkontroluj aktualizaci (když má uživatel appku dlouho otevřenou)
+      setInterval(() => reg.update(), 60 * 1000);
+    }).catch(() => {});
+  });
 }
 </script>
 </body>
