@@ -1182,6 +1182,13 @@
       drawFooter(c, w, h, model); return;
     }
 
+    // pokud jsou to výřezy (průhledné) -> hezký plakát bez boxů
+    const cutMode = players.every(p => p.cut && isReady(p.photo));
+    if (cutMode) {
+      drawCutoutStage(c, w, h, model, players, colors, topArea, bottomArea, pad, isStory);
+      drawFooter(c, w, h, model); return;
+    }
+
     const gap = w * 0.035;
     const cols = isStory ? 1 : n, rows = isStory ? n : 1;
     const cw = (w - pad * 2 - gap * (cols - 1)) / cols;
@@ -1194,6 +1201,78 @@
       drawPhotoCard(c, startX + col * (cw + gap), startY + r * (ch + gap), cw, ch, players[i], colors);
     }
     drawFooter(c, w, h, model);
+  }
+
+  // plakát s výřezy hráčů: reflektor + stín + jméno pod hráčem
+  function drawCutoutStage(c, w, h, model, players, colors, topArea, bottomArea, pad, isStory) {
+    const n = players.length, cx = w / 2;
+    const light = isLight(colors);
+    const nameBandH = isStory ? 128 : 108;
+    const zoneTop = topArea + 6;
+    const baseY = bottomArea - nameBandH;      // sem sedají nohy
+    const zoneH = baseY - zoneTop;
+    const gap = w * 0.02;
+    const colW = (w - pad * 2 - gap * (n - 1)) / n;
+    const groupW = colW * n + gap * (n - 1);
+    const startX = cx - groupW / 2;
+
+    // podlahový akcent v barvě týmu přes celou šířku
+    c.save();
+    const floor = c.createLinearGradient(0, baseY - 8, 0, baseY + 10);
+    floor.addColorStop(0, hexToRgba(colors.primary, 0));
+    floor.addColorStop(0.5, hexToRgba(colors.primary, light ? 0.9 : 0.8));
+    floor.addColorStop(1, hexToRgba(colors.primary, 0));
+    c.fillStyle = floor; c.fillRect(pad * 0.6, baseY - 8, w - pad * 1.2, 18);
+    c.restore();
+
+    for (let i = 0; i < n; i++) {
+      const p = players[i], img = p.photo;
+      const colCx = startX + colW / 2 + i * (colW + gap);
+      const zoom = (p.zoom != null) ? p.zoom : 1;
+      const sc = Math.min(colW / img.naturalWidth, zoneH / img.naturalHeight) * zoom;
+      const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+      const fx = (p.offsetX != null) ? p.offsetX : 0.5;
+      const dx = colCx - dw / 2 + (fx - 0.5) * (colW - dw);
+      const dy = baseY - dh;
+
+      // reflektor za hráčem
+      c.save();
+      const spotR = Math.max(colW, dh) * 0.62;
+      const spot = c.createRadialGradient(colCx, dy + dh * 0.42, spotR * 0.1, colCx, dy + dh * 0.42, spotR);
+      spot.addColorStop(0, hexToRgba(colors.primary, light ? 0.20 : 0.28));
+      spot.addColorStop(1, hexToRgba(colors.primary, 0));
+      c.fillStyle = spot; c.beginPath(); c.arc(colCx, dy + dh * 0.42, spotR, 0, Math.PI * 2); c.fill();
+      c.restore();
+
+      // stín pod nohama
+      c.save();
+      c.fillStyle = "rgba(0,0,0," + (light ? 0.22 : 0.35) + ")";
+      c.beginPath(); c.ellipse(colCx, baseY + 2, dw * 0.30, Math.max(8, dh * 0.028), 0, 0, Math.PI * 2); c.fill();
+      c.restore();
+
+      // hráč s jemným vrženým stínem
+      c.save();
+      c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 22; c.shadowOffsetY = 12;
+      c.drawImage(img, dx, dy, dw, dh);
+      c.restore();
+
+      // jméno + poznámka pod hráčem
+      const name = (p.name || "").toUpperCase().trim();
+      const note = (p.note || "").trim();
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      let ny = baseY + (isStory ? 58 : 50);
+      if (name) {
+        const nsz = fitFont(c, name, colW * 0.98, isStory ? 46 : 42, "900", 22);
+        c.font = "900 " + nsz + "px " + FONT; c.fillStyle = colors.text;
+        c.fillText(name, colCx, ny); ny += (isStory ? 30 : 26);
+      }
+      if (note) {
+        const zsz = isStory ? 26 : 24;
+        c.font = "700 " + zsz + "px " + FONT; c.fillStyle = colors.primary;
+        c.fillText(note, colCx, ny);
+      }
+    }
+    c.textAlign = "left"; c.textBaseline = "alphabetic";
   }
 
   function render(c, model) {
