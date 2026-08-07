@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-07-33" />
+<meta name="app-version" content="2026-08-07-34" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -795,7 +795,21 @@ function renderFarewell() {
     file.addEventListener("change", e => {
       const f = e.target.files[0]; if (!f) return;
       const r = new FileReader();
-      r.onload = () => resizePhoto(r.result, 1000, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); }, { mime: "image/jpeg", quality: 0.85 });
+      r.onload = () => {
+        const im = new Image();
+        im.onload = () => {
+          const cut = imageHasAlpha(im);
+          p.cut = cut;
+          if (cut) {
+            // výřez hráče -> zachovej průhlednost (PNG) a naframuj celou postavu (nohy dolů)
+            p.offsetY = 1; p.offsetX = 0.5; p.zoom = 1;
+            resizePhoto(r.result, 900, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); }, { mime: "image/png" });
+          } else {
+            resizePhoto(r.result, 1000, dataURL => { p.photo = dataURL; saveLineup(); renderFarewell(); render(); }, { mime: "image/jpeg", quality: 0.85 });
+          }
+        };
+        im.src = r.result;
+      };
       r.readAsDataURL(f);
     });
 
@@ -879,6 +893,16 @@ function loadLineup() {
   } catch (e) {}
 }
 function newId() { return "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+// zjisti, jestli má obrázek průhlednost (= je to výřez hráče)
+function imageHasAlpha(im) {
+  const s = 48, sc = Math.min(s / im.width, s / im.height, 1);
+  const cv = document.createElement("canvas");
+  cv.width = Math.max(1, Math.round(im.width * sc)); cv.height = Math.max(1, Math.round(im.height * sc));
+  const cx = cv.getContext("2d"); cx.drawImage(im, 0, 0, cv.width, cv.height);
+  const d = cx.getImageData(0, 0, cv.width, cv.height).data;
+  for (let i = 3; i < d.length; i += 4) { if (d[i] < 245) return true; }
+  return false;
+}
 // zmenši fotku kvůli velikosti localStorage a rychlosti.
 // opts.mime: "image/png" (výchozí, zachová průhlednost výřezů) nebo "image/jpeg" (fotky – mnohem menší)
 function resizePhoto(dataURL, size, cb, opts) {

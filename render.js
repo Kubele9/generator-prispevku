@@ -1086,7 +1086,19 @@
     c.save();
     roundRect(c, x, y, cw, ch, r); c.clip();
     const img = p.photo;
-    if (isReady(img)) {
+    if (isReady(img) && p.cut) {
+      // výřez hráče: barevný podklad + celá postava (contain), nohy dolů
+      const bgg = c.createLinearGradient(0, y, 0, y + ch);
+      bgg.addColorStop(0, shade(colors.secondary, 10));
+      bgg.addColorStop(1, shade(colors.primary, -12));
+      c.fillStyle = bgg; c.fillRect(x, y, cw, ch);
+      const zoom = (p.zoom != null) ? p.zoom : 1;
+      const sc = Math.min(cw / img.naturalWidth, ch / img.naturalHeight) * zoom;
+      const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
+      const fx = (p.offsetX != null) ? p.offsetX : 0.5;
+      const fy = (p.offsetY != null) ? p.offsetY : 1;
+      c.drawImage(img, x + (cw - dw) * fx, y + (ch - dh) * fy, dw, dh);
+    } else if (isReady(img)) {
       const ratio = img.naturalWidth / img.naturalHeight, cr = cw / ch;
       let dw, dh;
       if (ratio > cr) { dh = ch; dw = ch * ratio; } else { dw = cw; dh = cw / ratio; }

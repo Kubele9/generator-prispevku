@@ -14,3 +14,4 @@ kadr-*.json
 # Balíčky a systémové smetí
 *.zip
 .DS_Store
+_odchody/
