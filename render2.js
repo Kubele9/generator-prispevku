@@ -1203,26 +1203,26 @@
     drawFooter(c, w, h, model);
   }
 
-  // plakát s výřezy hráčů: reflektor + stín + jméno pod hráčem
+  // plakát s výřezy hráčů: neviditelný rám (ořez) + jméno pod hráčem, bez stínů
   function drawCutoutStage(c, w, h, model, players, colors, topArea, bottomArea, pad, isStory) {
     const n = players.length, cx = w / 2;
     const light = isLight(colors);
     const nameBandH = isStory ? 128 : 108;
     const zoneTop = topArea + 6;
-    const baseY = bottomArea - nameBandH;      // sem sedají nohy
+    const baseY = bottomArea - nameBandH;      // společná linka (nohy)
     const zoneH = baseY - zoneTop;
     const gap = w * 0.02;
     const colW = (w - pad * 2 - gap * (n - 1)) / n;
     const groupW = colW * n + gap * (n - 1);
     const startX = cx - groupW / 2;
 
-    // podlahový akcent v barvě týmu přes celou šířku
+    // jemná podlahová linka v barvě týmu (jen jako „úroveň", ne stín)
     c.save();
-    const floor = c.createLinearGradient(0, baseY - 8, 0, baseY + 10);
+    const floor = c.createLinearGradient(0, baseY - 6, 0, baseY + 8);
     floor.addColorStop(0, hexToRgba(colors.primary, 0));
-    floor.addColorStop(0.5, hexToRgba(colors.primary, light ? 0.9 : 0.8));
+    floor.addColorStop(0.5, hexToRgba(colors.primary, light ? 0.85 : 0.75));
     floor.addColorStop(1, hexToRgba(colors.primary, 0));
-    c.fillStyle = floor; c.fillRect(pad * 0.6, baseY - 8, w - pad * 1.2, 18);
+    c.fillStyle = floor; c.fillRect(pad * 0.6, baseY - 6, w - pad * 1.2, 14);
     c.restore();
 
     for (let i = 0; i < n; i++) {
@@ -1231,7 +1231,7 @@
       const colLeft = startX + i * (colW + gap);
       const colCx = colLeft + colW / 2;
       const zoom = (p.zoom != null) ? p.zoom : 1;
-      // fit s ~10% rezervou nahoře, aby šlo posouvat i při zoomu 1
+      // fit na stejnou výšku (contain) s ~10% rezervou -> oba stejně velcí a zarovnaní
       const fit = Math.min(colW / img.naturalWidth, (zoneH * 0.9) / img.naturalHeight);
       const sc = fit * zoom;
       const dw = img.naturalWidth * sc, dh = img.naturalHeight * sc;
@@ -1239,26 +1239,10 @@
       const fy = (p.offsetY != null) ? p.offsetY : 0.9;
       const dx = colLeft + (colW - dw) * fx;          // 0=vlevo, 1=vpravo
       const dy = zoneTop + (zoneH - dh) * fy;          // 0=nahoře, 1=dole
-      const footY = dy + dh, bodyCy = dy + dh * 0.42;
 
-      // reflektor za hráčem
+      // neviditelný rám: co přeteče, se čistě ořízne (nezasahuje jinam)
       c.save();
-      const spotR = Math.max(colW, dh) * 0.62;
-      const spot = c.createRadialGradient(colCx, bodyCy, spotR * 0.1, colCx, bodyCy, spotR);
-      spot.addColorStop(0, hexToRgba(colors.primary, light ? 0.20 : 0.28));
-      spot.addColorStop(1, hexToRgba(colors.primary, 0));
-      c.fillStyle = spot; c.beginPath(); c.arc(colCx, bodyCy, spotR, 0, Math.PI * 2); c.fill();
-      c.restore();
-
-      // stín pod nohama (sleduje pozici hráče)
-      c.save();
-      c.fillStyle = "rgba(0,0,0," + (light ? 0.22 : 0.35) + ")";
-      c.beginPath(); c.ellipse(dx + dw / 2, footY + 2, dw * 0.30, Math.max(8, dh * 0.028), 0, 0, Math.PI * 2); c.fill();
-      c.restore();
-
-      // hráč s jemným vrženým stínem
-      c.save();
-      c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 22; c.shadowOffsetY = 12;
+      c.beginPath(); c.rect(colLeft, zoneTop, colW, zoneH); c.clip();
       c.drawImage(img, dx, dy, dw, dh);
       c.restore();
 
