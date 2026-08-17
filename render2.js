@@ -5,6 +5,7 @@
   "use strict";
 
   const FONT = '"Montserrat", "Arial Narrow", Arial, sans-serif';
+  const SCORE_FONT = '"Anton", "Arial Narrow", Arial, sans-serif';
 
   /* ---------- helpers ---------- */
   function roundRect(c, x, y, w, h, r) {
@@ -319,8 +320,10 @@
     const hasHalf = (r.half || "").trim();
     const score = (r.hs || "0") + " : " + (r.as || "0");
     c.fillStyle = "#0b1f2a"; c.textAlign = "center"; c.textBaseline = "middle";
-    const sSize = fitFont(c, score, Rc * 1.5, isStory ? 118 : 110, "900", 54);
-    c.font = "900 " + sSize + "px " + FONT; c.fillText(score, cx, rowY - (hasHalf ? Rc * 0.12 : 0));
+    let sSize = isStory ? 168 : 156;
+    c.font = "400 " + sSize + "px " + SCORE_FONT;
+    while (c.measureText(score).width > Rc * 1.55 && sSize > 70) { sSize -= 2; c.font = "400 " + sSize + "px " + SCORE_FONT; }
+    c.fillText(score, cx, rowY - (hasHalf ? Rc * 0.10 : 0) + sSize * 0.03);
     c.textBaseline = "alphabetic";
     if (hasHalf) {
       c.fillStyle = "rgba(11,31,42,0.6)"; c.font = "700 " + (isStory ? 30 : 28) + "px " + FONT;
@@ -344,28 +347,42 @@
     drawTeamNameCol(c, r.home, colHome, namesY, w * 0.38, leftTxt, isStory);
     drawTeamNameCol(c, r.away, colAway, namesY, w * 0.38, rightTxt, isStory);
 
-    // střelci – s linkami po stranách
+    // střelci – na tmavém panelu (aby nezanikli na bílém předělu)
     const scorers = (r.scorers || []).filter(Boolean);
     if (scorers.length) {
-      let sy = Math.round(h * (isStory ? 0.76 : 0.75));
-      c.textAlign = "center"; c.textBaseline = "alphabetic";
-      const tsz = isStory ? 32 : 30;
-      c.font = "800 " + tsz + "px " + FONT;
-      const title = "STŘELCI", tW = c.measureText(title).width;
-      const lineLen = isStory ? 120 : 96, glp = 24, ly = sy - tsz * 0.32;
-      c.save(); c.strokeStyle = "rgba(255,255,255,0.6)"; c.lineWidth = 3;
-      c.beginPath(); c.moveTo(cx - tW / 2 - glp - lineLen, ly); c.lineTo(cx - tW / 2 - glp, ly); c.stroke();
-      c.beginPath(); c.moveTo(cx + tW / 2 + glp, ly); c.lineTo(cx + tW / 2 + glp + lineLen, ly); c.stroke();
-      c.restore();
-      c.save(); c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 6;
-      c.fillStyle = "rgba(255,255,255,0.95)"; c.fillText(title, cx, sy); c.restore();
-      sy += isStory ? 50 : 46;
+      const ts = isStory ? 32 : 30;
       const line = scorers.join(", ");
-      const ls = fitFont(c, line, w * 0.86, isStory ? 36 : 34, "600", 20);
-      c.font = "600 " + ls + "px " + FONT; c.fillStyle = "#ffffff";
-      c.save(); c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 6;
-      for (const ln of wrapLines(c, line, w * 0.86)) { c.fillText(ln, cx, sy); sy += ls + 8; }
+      const ls = fitFont(c, line, w * 0.74, isStory ? 36 : 34, "600", 20);
+      c.font = "600 " + ls + "px " + FONT;
+      const sLines = wrapLines(c, line, w * 0.74);
+      const padX = 46, padY = 28, innerGap = 16;
+      c.font = "800 " + ts + "px " + FONT;
+      let contentW = c.measureText("STŘELCI").width;
+      c.font = "600 " + ls + "px " + FONT;
+      for (const ln of sLines) contentW = Math.max(contentW, c.measureText(ln).width);
+      const panelW = Math.min(w * 0.9, contentW + padX * 2);
+      const panelH = padY * 2 + ts + innerGap + sLines.length * ls + (sLines.length - 1) * 8;
+      const panelTop = Math.round(h * (isStory ? 0.74 : 0.72));
+
+      c.save();
+      c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 18; c.shadowOffsetY = 6;
+      c.fillStyle = "rgba(9,20,28,0.58)";
+      roundRect(c, cx - panelW / 2, panelTop, panelW, panelH, 22); c.fill();
       c.restore();
+
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      const ty = panelTop + padY + ts * 0.82;
+      c.font = "800 " + ts + "px " + FONT;
+      const tW = c.measureText("STŘELCI").width;
+      const ll = isStory ? 96 : 78, glp = 20, ly = ty - ts * 0.30;
+      c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(cx - tW / 2 - glp - ll, ly); c.lineTo(cx - tW / 2 - glp, ly); c.stroke();
+      c.beginPath(); c.moveTo(cx + tW / 2 + glp, ly); c.lineTo(cx + tW / 2 + glp + ll, ly); c.stroke();
+      c.fillStyle = "#ffffff"; c.fillText("STŘELCI", cx, ty);
+
+      c.font = "600 " + ls + "px " + FONT; c.fillStyle = "rgba(255,255,255,0.97)";
+      let yy = ty + innerGap + ls;
+      for (const ln of sLines) { c.fillText(ln, cx, yy); yy += ls + 8; }
     }
 
     // datum (velké) + patička (bíle)

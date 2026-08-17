@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-17-45" />
+<meta name="app-version" content="2026-08-17-46" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -15,7 +15,7 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;0,900;1,900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Montserrat:ital,wght@0,500;0,600;0,700;0,800;0,900;1,900&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #0f1115; --panel: #171a21; --panel-2: #1f232c; --border: #2a2f3a;
@@ -1536,7 +1536,14 @@ applyCoverBg();
 })();
 // na počítači (bez přímého sdílení) popiš tlačítko srozumitelněji
 if (!canShareFiles()) { $("shareBtn").textContent = "📋 Zkopírovat pro FB / Instagram"; }
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+if (document.fonts && document.fonts.load) {
+  Promise.all([
+    document.fonts.load('400 120px "Anton"'),
+    document.fonts.load('900 48px "Montserrat"'),
+    document.fonts.load('700 32px "Montserrat"'),
+  ]).then(render).catch(() => {});
+  document.fonts.ready.then(render);
+}
 render();
 
 // registrace service workeru (offline režim) – funguje jen přes http(s), ne z file://
