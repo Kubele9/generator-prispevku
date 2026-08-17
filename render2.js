@@ -5,7 +5,7 @@
   "use strict";
 
   const FONT = '"Montserrat", "Arial Narrow", Arial, sans-serif';
-  const SCORE_FONT = '"Anton", "Arial Narrow", Arial, sans-serif';
+  const SCORE_FONT = '"Bebas Neue", "Arial Narrow", Arial, sans-serif';
 
   /* ---------- helpers ---------- */
   function roundRect(c, x, y, w, h, r) {
@@ -320,10 +320,10 @@
     const hasHalf = (r.half || "").trim();
     const score = (r.hs || "0") + " : " + (r.as || "0");
     c.fillStyle = "#0b1f2a"; c.textAlign = "center"; c.textBaseline = "middle";
-    let sSize = isStory ? 168 : 156;
+    let sSize = isStory ? 210 : 196;
     c.font = "400 " + sSize + "px " + SCORE_FONT;
-    while (c.measureText(score).width > Rc * 1.55 && sSize > 70) { sSize -= 2; c.font = "400 " + sSize + "px " + SCORE_FONT; }
-    c.fillText(score, cx, rowY - (hasHalf ? Rc * 0.10 : 0) + sSize * 0.03);
+    while (c.measureText(score).width > Rc * 1.6 && sSize > 80) { sSize -= 2; c.font = "400 " + sSize + "px " + SCORE_FONT; }
+    c.fillText(score, cx, rowY - (hasHalf ? Rc * 0.12 : 0) + sSize * 0.04);
     c.textBaseline = "alphabetic";
     if (hasHalf) {
       c.fillStyle = "rgba(11,31,42,0.6)"; c.font = "700 " + (isStory ? 30 : 28) + "px " + FONT;
