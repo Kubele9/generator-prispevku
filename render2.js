@@ -178,6 +178,21 @@
     c.fillStyle = vg; c.fillRect(0, 0, w, h);
   }
 
+  // velký průsvitný vodoznak znaku, oříznutý do své poloviny
+  function drawHalfWatermark(c, w, h, img, side) {
+    if (!isReady(img)) return;
+    const topX = w * 0.56, botX = w * 0.44;
+    c.save();
+    c.beginPath();
+    if (side === "left") { c.moveTo(0, 0); c.lineTo(topX, 0); c.lineTo(botX, h); c.lineTo(0, h); }
+    else { c.moveTo(topX, 0); c.lineTo(w, 0); c.lineTo(w, h); c.lineTo(botX, h); }
+    c.closePath(); c.clip();
+    c.globalAlpha = 0.13;
+    const cxp = side === "left" ? w * 0.22 : w * 0.78;
+    drawImageContain(c, img, cxp, h * 0.5, h * 0.66);
+    c.restore();
+  }
+
   function drawTeamNameCol(c, name, cx, y, maxW, color, isStory) {
     name = (name || "").toUpperCase();
     const size = fitFont(c, name, maxW, isStory ? 42 : 38, "800", 20);
@@ -269,6 +284,10 @@
 
     drawSplitBackground(c, w, h, leftCol, rightCol);
 
+    // velké průsvitné vodoznaky znaků v každé půlce
+    drawHalfWatermark(c, w, h, homeIsBrum ? model.logo : model.oppLogo, "left");
+    drawHalfWatermark(c, w, h, homeIsBrum ? model.oppLogo : model.logo, "right");
+
     // hlavička: odznak týmu + soutěž (bíle)
     let y = isStory ? 150 : 74;
     y = drawTeamBadge(c, cx, y, model);
@@ -284,26 +303,13 @@
     }
 
     // znaky + skóre
-    const rowY = isStory ? Math.round(h * 0.34) : Math.round(h * 0.37);
-    const logoSize = isStory ? 196 : 184;
-    const discR = logoSize * 0.62;
-    const colHome = w * 0.225, colAway = w * 0.775;
+    const rowY = isStory ? Math.round(h * 0.36) : Math.round(h * 0.40);
+    const logoSize = isStory ? 250 : 236;
+    const colHome = w * 0.215, colAway = w * 0.785;
     const Rc = isStory ? Math.round(w * 0.155) : Math.round(w * 0.15);
 
-    function crestDisc(px) {
-      c.save();
-      c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 26; c.shadowOffsetY = 8;
-      c.fillStyle = "#ffffff"; c.beginPath(); c.arc(px, rowY, discR, 0, Math.PI * 2); c.fill();
-      c.restore();
-    }
-    crestDisc(colHome); crestDisc(colAway);
-    drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, r.home, colHome, rowY, discR * 1.7, colors);
-    drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, r.away, colAway, rowY, discR * 1.7, colors);
-
-    // jména týmů pod znaky
-    const namesY = rowY + discR + (isStory ? 60 : 54);
-    drawTeamNameCol(c, r.home, colHome, namesY, w * 0.40, leftTxt, isStory);
-    drawTeamNameCol(c, r.away, colAway, namesY, w * 0.40, rightTxt, isStory);
+    drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, r.home, colHome, rowY, logoSize, colors);
+    drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, r.away, colAway, rowY, logoSize, colors);
 
     // střední bílý kruh se skóre (přes předěl)
     c.save();
@@ -321,11 +327,11 @@
       c.fillText("( " + r.half.trim() + " )", cx, rowY + Rc * 0.5);
     }
 
-    // plaketa výsledku
+    // plaketa výsledku – zasazená těsně pod kruh
     const label = resultLabel(r, colors);
-    const plaqueTop = Math.round(h * 0.585);
     c.font = "900 " + (isStory ? 42 : 38) + "px " + FONT;
-    const pillW = c.measureText(label.text).width + 90, pillH = isStory ? 74 : 68;
+    const pillW = c.measureText(label.text).width + 92, pillH = isStory ? 74 : 68;
+    const plaqueTop = Math.round(rowY + Rc - pillH * 0.30);
     c.save();
     c.shadowColor = "rgba(0,0,0,0.32)"; c.shadowBlur = 20; c.shadowOffsetY = 8;
     c.fillStyle = label.color; roundRect(c, cx - pillW / 2, plaqueTop, pillW, pillH, pillH / 2); c.fill();
@@ -333,34 +339,48 @@
     c.fillStyle = "#fff"; c.textAlign = "center"; c.textBaseline = "middle";
     c.fillText(label.text, cx, plaqueTop + pillH / 2 + 1); c.textBaseline = "alphabetic";
 
-    // střelci
+    // jména týmů pod znaky (vedle plakety, zalomí se do 2 řádků)
+    const namesY = plaqueTop + pillH + (isStory ? 40 : 34);
+    drawTeamNameCol(c, r.home, colHome, namesY, w * 0.38, leftTxt, isStory);
+    drawTeamNameCol(c, r.away, colAway, namesY, w * 0.38, rightTxt, isStory);
+
+    // střelci – s linkami po stranách
     const scorers = (r.scorers || []).filter(Boolean);
     if (scorers.length) {
-      let sy = plaqueTop + pillH + (isStory ? 66 : 54);
-      c.textAlign = "center";
+      let sy = Math.round(h * (isStory ? 0.76 : 0.75));
+      c.textAlign = "center"; c.textBaseline = "alphabetic";
+      const tsz = isStory ? 32 : 30;
+      c.font = "800 " + tsz + "px " + FONT;
+      const title = "STŘELCI", tW = c.measureText(title).width;
+      const lineLen = isStory ? 120 : 96, glp = 24, ly = sy - tsz * 0.32;
+      c.save(); c.strokeStyle = "rgba(255,255,255,0.6)"; c.lineWidth = 3;
+      c.beginPath(); c.moveTo(cx - tW / 2 - glp - lineLen, ly); c.lineTo(cx - tW / 2 - glp, ly); c.stroke();
+      c.beginPath(); c.moveTo(cx + tW / 2 + glp, ly); c.lineTo(cx + tW / 2 + glp + lineLen, ly); c.stroke();
+      c.restore();
       c.save(); c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 6;
-      c.fillStyle = "rgba(255,255,255,0.92)"; c.font = "800 " + (isStory ? 30 : 28) + "px " + FONT;
-      c.fillText("STŘELCI", cx, sy); c.restore();
-      sy += isStory ? 48 : 44;
+      c.fillStyle = "rgba(255,255,255,0.95)"; c.fillText(title, cx, sy); c.restore();
+      sy += isStory ? 50 : 46;
       const line = scorers.join(", ");
-      const ls = fitFont(c, line, w * 0.86, isStory ? 34 : 32, "600", 20);
+      const ls = fitFont(c, line, w * 0.86, isStory ? 36 : 34, "600", 20);
       c.font = "600 " + ls + "px " + FONT; c.fillStyle = "#ffffff";
       c.save(); c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 6;
       for (const ln of wrapLines(c, line, w * 0.86)) { c.fillText(ln, cx, sy); sy += ls + 8; }
       c.restore();
     }
 
-    // datum + patička (bíle)
+    // datum (velké) + patička (bíle)
     if ((r.date || "").trim()) {
-      c.fillStyle = "rgba(255,255,255,0.9)"; c.textAlign = "center"; c.textBaseline = "alphabetic";
-      c.font = "700 " + (isStory ? 30 : 28) + "px " + FONT;
-      c.fillText(r.date, cx, isStory ? h - 150 : h - 96);
+      c.save(); c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 6;
+      c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+      c.font = "800 " + (isStory ? 40 : 36) + "px " + FONT;
+      c.fillText(r.date, cx, isStory ? h - 130 : h - 92);
+      c.restore();
     }
     const footer = (model.footer || "").trim();
     if (footer) {
-      c.fillStyle = "rgba(255,255,255,0.8)"; c.textAlign = "center";
-      c.font = "700 26px " + FONT;
-      c.fillText(footer, cx, isStory ? h - 96 : h - 56);
+      c.fillStyle = "rgba(255,255,255,0.85)"; c.textAlign = "center";
+      c.font = "700 " + (isStory ? 28 : 26) + "px " + FONT;
+      c.fillText(footer, cx, isStory ? h - 84 : h - 52);
     }
     c.textAlign = "left";
   }
