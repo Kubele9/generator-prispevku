@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-17-47" />
+<meta name="app-version" content="2026-08-18-48" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -432,6 +432,10 @@
         <button type="button" class="btn secondary" id="downloadBtn">⬇ Stáhnout PNG</button>
         <button type="button" class="btn secondary" id="copyBtn" style="max-width:170px">Kopírovat</button>
       </div>
+      <div id="videoActions" style="display:none; gap:10px; width:100%">
+        <button type="button" class="btn secondary" id="playAnimBtn" style="max-width:180px">▶ Přehrát animaci</button>
+        <button type="button" class="btn" id="videoBtn">🎬 Stáhnout video</button>
+      </div>
     </div>
     <div class="hint" id="shareHint" style="max-width:520px; text-align:center">
       <b>Na mobilu:</b> „Sdílet" otevře nabídku appek → vyber <b>Facebook</b> nebo <b>Instagram</b> a tam zvolíš <b>Feed</b>, nebo <b>Stories</b>.
@@ -676,7 +680,7 @@ function buildRosterPoster() {
   return { title: val("rd_title"), season: val("rd_season"), players, staff };
 }
 
-function render() {
+function prepModel() {
   let baseW = 1080, baseH = 1080, scale = 1;
   if (state.tpl === "cover") { baseW = 1640; baseH = 624; }
   else if (state.format === "story") { baseH = 1920; }
@@ -686,8 +690,77 @@ function render() {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   const model = buildModel();
   model.canvasW = baseW; model.canvasH = baseH;
-  Poster.render(ctx, model);
+  return model;
 }
+function render() {
+  cancelAnim();
+  const model = prepModel();
+  Poster.render(ctx, model);
+  const va = $("videoActions"); if (va) va.style.display = (state.tpl === "invite") ? "flex" : "none";
+}
+
+/* ---------- animace / video ---------- */
+const ANIM_INTRO_MS = 4200;   // délka náletu
+const ANIM_HOLD_MS = 1400;    // ustálení na konci
+let animRAF = null;
+function cancelAnim() { if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; } }
+function playPreview() {
+  if (state.tpl !== "invite") { render(); return; }
+  cancelAnim();
+  const model = prepModel();
+  const start = performance.now();
+  (function tick(now) {
+    const p = Math.min(1, (now - start) / ANIM_INTRO_MS);
+    Poster.renderFrame(ctx, model, p);
+    if (p < 1) { animRAF = requestAnimationFrame(tick); } else { animRAF = null; }
+  })(performance.now());
+}
+function pickVideoMime() {
+  const c = ["video/mp4;codecs=h264", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  if (!("MediaRecorder" in window)) return "";
+  return c.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } }) || "";
+}
+async function exportVideo() {
+  if (state.tpl !== "invite") { alert("Animované video je zatím jen pro Pozvánku."); return; }
+  if (!("MediaRecorder" in window) || !canvas.captureStream) { alert("Tvůj prohlížeč neumí nahrát video z plátna. Zkus Chrome nebo Safari."); return; }
+  cancelAnim();
+  const btn = $("videoBtn"), old = btn.textContent; btn.textContent = "Nahrávám…"; btn.disabled = true;
+  try {
+    const model = prepModel();
+    Poster.renderFrame(ctx, model, 0);
+    const mime = pickVideoMime();
+    const stream = canvas.captureStream(30);
+    const rec = new MediaRecorder(stream, Object.assign({ videoBitsPerSecond: 8000000 }, mime ? { mimeType: mime } : {}));
+    const chunks = [];
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise(res => { rec.onstop = res; });
+    rec.start();
+    const total = ANIM_INTRO_MS + ANIM_HOLD_MS, start = performance.now();
+    await new Promise(resolve => {
+      (function tick(now) {
+        const el = now - start;
+        Poster.renderFrame(ctx, model, Math.min(1, el / ANIM_INTRO_MS));
+        if (el >= total) resolve(); else requestAnimationFrame(tick);
+      })(performance.now());
+    });
+    rec.stop(); await stopped;
+    const isMp4 = (mime || "").includes("mp4");
+    const blob = new Blob(chunks, { type: isMp4 ? "video/mp4" : "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = "pozvanka-" + (state.format === "story" ? "story" : "feed") + (isMp4 ? ".mp4" : ".webm");
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    if (!isMp4) alert("Video je ve formátu WebM (tvůj prohlížeč zatím neumí MP4). Facebook ho vezme. Pro Instagram ho převeď na MP4 – nejrychleji přes Chrome, nebo na cloudconvert.com.");
+  } catch (e) {
+    alert("Nepodařilo se vytvořit video:\n" + (e && e.message || e));
+  } finally {
+    btn.textContent = old; btn.disabled = false;
+    render();
+  }
+}
+$("playAnimBtn").addEventListener("click", playPreview);
+$("videoBtn").addEventListener("click", exportVideo);
 
 /* ---------- opponent name helper ---------- */
 function currentOpponentName() {

@@ -27,6 +27,12 @@
     for (const w of words) { const t = line ? line + " " + w : w; if (c.measureText(t).width > maxWidth && line) { lines.push(line); line = w; } else line = t; }
     if (line) lines.push(line); return lines;
   }
+  // ---- easing pro animace ----
+  function seg(p, a, b) { return Math.max(0, Math.min(1, (p - a) / (b - a))); }
+  function easeOutCubic(x) { return 1 - Math.pow(1 - x, 3); }
+  function easeInOut(x) { return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; }
+  function easeOutBack(x) { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
+
   function shade(hex, percent) {
     if (hex[0] !== "#") return hex;
     const n = parseInt(hex.slice(1), 16);
@@ -488,6 +494,147 @@
       drawInfoCol(c, cols[1][0], cols[1][1], w * 0.70, by, w * 0.42, colors, tx);
     }
     drawFooter(c, w, h, model);
+  }
+
+  /* ---------- INVITE (animovaná varianta pro video) ---------- */
+  // p = 0..1 (průběh úvodní animace). Při p>=1 vypadá stejně jako statická pozvánka.
+  function renderInviteFrame(c, w, h, model, p) {
+    const iv = model.invite, colors = model.colors, tx = colors.text;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+    const base = isStory ? 150 : 74;
+
+    drawBackground(c, w, h, colors);
+
+    // odznak + nadpis (sjede shora)
+    {
+      const a = easeOutCubic(seg(p, 0.05, 0.28)), dy = (1 - a) * (-28);
+      if (a > 0) {
+        c.save(); c.globalAlpha = a;
+        drawTeamBadge(c, cx, base + dy, model);
+        const title = (iv.title || "").toUpperCase();
+        if (title) {
+          c.fillStyle = colors.primary; c.textAlign = "center"; c.textBaseline = "alphabetic";
+          const ts = fitFont(c, title, w * 0.86, 44, "800", 24);
+          c.font = "800 " + ts + "px " + FONT; c.fillText(title, cx, base + 98 + dy);
+        }
+        c.restore();
+      }
+    }
+
+    // loga + VS
+    const rowY = isStory ? h * 0.30 : h * 0.33;
+    const logoSize = isStory ? 210 : 188;
+    const homeIsBrum = iv.side !== "away";
+    const leftName = homeIsBrum ? "Sokol Brumovice" : iv.opp;
+    const rightName = homeIsBrum ? iv.opp : "Sokol Brumovice";
+    const leftLogo = homeIsBrum ? model.logo : model.oppLogo;
+    const rightLogo = homeIsBrum ? model.oppLogo : model.logo;
+    {
+      const e = easeOutCubic(seg(p, 0.18, 0.44));
+      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, leftLogo, leftName, w * 0.27 - (1 - e) * w * 0.22, rowY, logoSize, colors); c.restore(); }
+    }
+    {
+      const e = easeOutCubic(seg(p, 0.24, 0.50));
+      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, rightLogo, rightName, w * 0.73 + (1 - e) * w * 0.22, rowY, logoSize, colors); c.restore(); }
+    }
+    {
+      const e = easeOutBack(seg(p, 0.44, 0.62)), a = seg(p, 0.44, 0.56);
+      if (a > 0) {
+        c.save(); c.globalAlpha = Math.min(1, a);
+        c.translate(cx, rowY); c.scale(Math.max(0.001, e), Math.max(0.001, e)); c.translate(-cx, -rowY);
+        c.beginPath(); c.arc(cx, rowY, 48, 0, Math.PI * 2); c.fillStyle = colors.primary; c.fill();
+        c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
+        c.font = "900 italic 40px " + FONT; c.fillText("VS", cx, rowY + 2); c.textBaseline = "alphabetic";
+        c.restore();
+      }
+    }
+    {
+      const e = easeOutCubic(seg(p, 0.52, 0.70)), dy = (1 - e) * 18;
+      if (e > 0) {
+        c.save(); c.globalAlpha = e; c.translate(0, dy);
+        drawTeamName(c, leftName, w * 0.27, rowY + logoSize / 2 + 50, w * 0.42, colors);
+        drawTeamName(c, rightName, w * 0.73, rowY + logoSize / 2 + 50, w * 0.42, colors);
+        c.restore();
+      }
+    }
+
+    // datum + čas
+    let by = isStory ? h * 0.58 : h * 0.585;
+    c.textAlign = "center";
+    const dt = (iv.date || "").trim();
+    if (dt) {
+      const e = easeOutBack(seg(p, 0.58, 0.74)), a = seg(p, 0.58, 0.70);
+      const ds = fitFont(c, dt, w * 0.8, 60, "900", 34);
+      if (a > 0) {
+        c.save(); c.globalAlpha = Math.min(1, a);
+        c.translate(cx, by); c.scale(Math.max(0.001, e), Math.max(0.001, e)); c.translate(-cx, -by);
+        c.fillStyle = tx; c.textBaseline = "alphabetic"; c.font = "900 " + ds + "px " + FONT; c.fillText(dt, cx, by);
+        c.restore();
+      }
+      by += 34;
+    }
+    const tm = (iv.time || "").trim();
+    if (tm) {
+      by += 30;
+      const e = easeOutCubic(seg(p, 0.66, 0.80)), dy = (1 - e) * 22;
+      if (e > 0) {
+        c.save(); c.globalAlpha = e;
+        c.font = "800 38px " + FONT; const pw = c.measureText(tm).width + 66;
+        c.fillStyle = colors.primary; roundRect(c, cx - pw / 2, by - 44 + dy, pw, 62, 31); c.fill();
+        c.fillStyle = pillTextColor(colors.primary); c.textBaseline = "middle";
+        c.fillText(tm, cx, by - 44 + 32 + dy); c.textBaseline = "alphabetic";
+        c.restore();
+      }
+      by += 40;
+    }
+
+    // oddělovač (roste od středu)
+    by += 36;
+    {
+      const e = easeInOut(seg(p, 0.72, 0.86));
+      if (e > 0) {
+        const half = (w * 0.78 - w * 0.22) / 2 * e;
+        c.save(); c.strokeStyle = overlay(colors, 0.18); c.lineWidth = 2;
+        c.beginPath(); c.moveTo(cx - half, by); c.lineTo(cx + half, by); c.stroke(); c.restore();
+      }
+    }
+    by += 58;
+
+    // KDE / SOUTĚŽ
+    {
+      const e = easeOutCubic(seg(p, 0.80, 0.96)), dy = (1 - e) * 16;
+      if (e > 0) {
+        c.save(); c.globalAlpha = e;
+        const cols = [];
+        if ((iv.venue || "").trim()) cols.push(["Kde", iv.venue.trim()]);
+        if ((iv.comp || "").trim()) cols.push(["Soutěž", iv.comp.trim()]);
+        if (cols.length === 1) drawInfoCol(c, cols[0][0], cols[0][1], cx, by + dy, w * 0.8, colors, tx);
+        else if (cols.length === 2) {
+          drawInfoCol(c, cols[0][0], cols[0][1], w * 0.30, by + dy, w * 0.42, colors, tx);
+          drawInfoCol(c, cols[1][0], cols[1][1], w * 0.70, by + dy, w * 0.42, colors, tx);
+        }
+        c.restore();
+      }
+    }
+
+    // patička
+    {
+      const a = easeOutCubic(seg(p, 0.90, 1.0));
+      if (a > 0) { c.save(); c.globalAlpha = a; drawFooter(c, w, h, model); c.restore(); }
+    }
+
+    // světelný přejezd (shine) přes celý plakát
+    {
+      const sp = seg(p, 0.12, 0.5);
+      if (sp > 0 && sp < 1) {
+        c.save();
+        const bandW = w * 0.45, xpos = -bandW + (w + bandW * 2) * easeInOut(sp);
+        const g = c.createLinearGradient(xpos, 0, xpos + bandW, 0);
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,0.10)"); g.addColorStop(1, "rgba(255,255,255,0)");
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+        c.restore();
+      }
+    }
   }
 
   /* ---------- ANNOUNCE ---------- */
@@ -1421,5 +1568,13 @@
     else if (model.tpl === "roster") renderRosterSeason(c, w, h, model);
   }
 
-  global.Poster = { render: render, FONT: FONT, drawAvatar: drawAvatar };
+  // jeden snímek animace (p = 0..1). Pro nepodporované šablony vykreslí statiku.
+  function renderFrame(c, model, p) {
+    const w = model.canvasW || c.canvas.width, h = model.canvasH || c.canvas.height;
+    c.clearRect(0, 0, w, h);
+    if (model.tpl === "invite") { renderInviteFrame(c, w, h, model, p); return; }
+    render(c, model);
+  }
+
+  global.Poster = { render: render, renderFrame: renderFrame, FONT: FONT, drawAvatar: drawAvatar };
 })(typeof window !== "undefined" ? window : this);
