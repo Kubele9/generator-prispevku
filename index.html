@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-18-48" />
+<meta name="app-version" content="2026-08-18-61" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -696,8 +696,9 @@ function render() {
   cancelAnim();
   const model = prepModel();
   Poster.render(ctx, model);
-  const va = $("videoActions"); if (va) va.style.display = (state.tpl === "invite") ? "flex" : "none";
+  const va = $("videoActions"); if (va) va.style.display = isAnimatedTpl() ? "flex" : "none";
 }
+function isAnimatedTpl() { return state.tpl === "invite" || state.tpl === "result" || state.tpl === "lineup"; }
 
 /* ---------- animace / video ---------- */
 const ANIM_INTRO_MS = 4200;   // délka náletu
@@ -705,7 +706,7 @@ const ANIM_HOLD_MS = 1400;    // ustálení na konci
 let animRAF = null;
 function cancelAnim() { if (animRAF) { cancelAnimationFrame(animRAF); animRAF = null; } }
 function playPreview() {
-  if (state.tpl !== "invite") { render(); return; }
+  if (!isAnimatedTpl()) { render(); return; }
   cancelAnim();
   const model = prepModel();
   const start = performance.now();
@@ -721,7 +722,7 @@ function pickVideoMime() {
   return c.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch (e) { return false; } }) || "";
 }
 async function exportVideo() {
-  if (state.tpl !== "invite") { alert("Animované video je zatím jen pro Pozvánku."); return; }
+  if (!isAnimatedTpl()) { alert("Animované video je zatím jen pro Pozvánku, Výsledek a Sestavu."); return; }
   if (!("MediaRecorder" in window) || !canvas.captureStream) { alert("Tvůj prohlížeč neumí nahrát video z plátna. Zkus Chrome nebo Safari."); return; }
   cancelAnim();
   const btn = $("videoBtn"), old = btn.textContent; btn.textContent = "Nahrávám…"; btn.disabled = true;
@@ -748,7 +749,7 @@ async function exportVideo() {
     const blob = new Blob(chunks, { type: isMp4 ? "video/mp4" : "video/webm" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a"); a.href = url;
-    a.download = "pozvanka-" + (state.format === "story" ? "story" : "feed") + (isMp4 ? ".mp4" : ".webm");
+    a.download = (state.tpl === "result" ? "vysledek-" : state.tpl === "lineup" ? "sestava-" : "pozvanka-") + (state.format === "story" ? "story" : "feed") + (isMp4 ? ".mp4" : ".webm");
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
     if (!isMp4) alert("Video je ve formátu WebM (tvůj prohlížeč zatím neumí MP4). Facebook ho vezme. Pro Instagram ho převeď na MP4 – nejrychleji přes Chrome, nebo na cloudconvert.com.");

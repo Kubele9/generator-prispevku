@@ -186,7 +186,7 @@
   }
 
   // velký průsvitný vodoznak znaku, oříznutý do své poloviny
-  function drawHalfWatermark(c, w, h, img, side) {
+  function drawHalfWatermark(c, w, h, img, side, alpha) {
     if (!isReady(img)) return;
     const topX = w * 0.56, botX = w * 0.44;
     c.save();
@@ -194,18 +194,81 @@
     if (side === "left") { c.moveTo(0, 0); c.lineTo(topX, 0); c.lineTo(botX, h); c.lineTo(0, h); }
     else { c.moveTo(topX, 0); c.lineTo(w, 0); c.lineTo(w, h); c.lineTo(botX, h); }
     c.closePath(); c.clip();
-    c.globalAlpha = 0.13;
+    c.globalAlpha = (alpha != null ? alpha : 0.13);
     const cxp = side === "left" ? w * 0.22 : w * 0.78;
     drawImageContain(c, img, cxp, h * 0.5, h * 0.66);
     c.restore();
   }
 
-  function drawTeamNameCol(c, name, cx, y, maxW, color, isStory) {
+  // skóre: tmavé kolečko + bílý prstenec + bílá čísla (styl B), ruční rozvržení + širší dvojtečka
+  function drawScoreBadge(c, cx, cy, Rc, hs, as, half, isStory) {
+    hs = String(hs != null ? hs : "0"); as = String(as != null ? as : "0");
+    const hasHalf = (half || "").trim();
+
+    // rozvržení čísel (spočítat dřív – podle šířky se dělá rám)
+    let numSz = isStory ? 176 : 164;
+    let colSz, gap, w1, w2, wc;
+    function layout() {
+      c.font = "400 " + numSz + "px " + SCORE_FONT; w1 = c.measureText(hs).width; w2 = c.measureText(as).width;
+      colSz = numSz * 0.78; c.font = "400 " + colSz + "px " + SCORE_FONT; wc = c.measureText(":").width;
+      gap = numSz * 0.12; // čísla blíž k sobě
+      return w1 + gap + wc + gap + w2;
+    }
+    let totalW = layout();
+    while (totalW > Rc * 2.4 && numSz > 80) { numSz -= 4; totalW = layout(); }
+
+    // zaoblený obdélník (jako pilulky/panel střelců) – jemné tmavě šedé „sklo“ + bílý rámeček
+    const boxH = Rc * 1.7, boxW = Math.max(totalW + Rc * 0.6, Rc * 2.1);
+    const bx = cx - boxW / 2, byy = cy - boxH / 2, rad = Math.min(Rc * 0.42, boxH * 0.28);
+    c.save();
+    c.shadowColor = "rgba(0,0,0,0.22)"; c.shadowBlur = 22; c.shadowOffsetY = 8;
+    c.fillStyle = "rgba(30,37,48,0.62)";
+    roundRect(c, bx, byy, boxW, boxH, rad); c.fill();
+    c.restore();
+    c.save();
+    const lw = Math.max(4, Rc * 0.032); c.lineWidth = lw; c.strokeStyle = "rgba(255,255,255,0.9)";
+    roundRect(c, bx + lw / 2 + 1, byy + lw / 2 + 1, boxW - lw - 2, boxH - lw - 2, Math.max(2, rad - lw / 2)); c.stroke();
+    c.restore();
+
+    // hlavní skóre na střed rámu, poločas jen pod
+    const midY = cy + (isStory ? 8 : 6);
+    const startX = cx - totalW / 2;
+    c.fillStyle = "#ffffff"; c.textAlign = "left"; c.textBaseline = "middle";
+    c.font = "400 " + numSz + "px " + SCORE_FONT; c.fillText(hs, startX, midY);
+    const colonX = startX + w1 + gap;
+    c.font = "400 " + colSz + "px " + SCORE_FONT; c.fillText(":", colonX, midY - numSz * 0.06);
+    c.font = "400 " + numSz + "px " + SCORE_FONT; c.fillText(as, colonX + wc + gap, midY);
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+
+    if (hasHalf) {
+      c.fillStyle = "rgba(255,255,255,0.72)"; c.font = "700 " + (isStory ? 28 : 26) + "px " + FONT;
+      c.fillText("( " + half.trim() + " )", cx, midY + numSz * 0.44);
+    }
+  }
+
+  // výsledek decentně: bílý text + krátká barevná linka (bez barevné pilulky)
+  function drawResultLabel(c, cx, y, label, isStory) {
+    const sz = isStory ? 46 : 42;
+    c.font = "900 " + sz + "px " + FONT;
+    c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+    c.fillText(label.text, cx, y);
+    const tw = c.measureText(label.text).width;
+    const uy = y + (isStory ? 16 : 14);
+    c.strokeStyle = label.color; c.lineWidth = isStory ? 6 : 5; c.lineCap = "round";
+    c.beginPath(); c.moveTo(cx - tw * 0.35, uy); c.lineTo(cx + tw * 0.35, uy); c.stroke();
+    c.lineCap = "butt";
+  }
+
+  function drawTeamNameCol(c, name, cx, y, maxW, color, isStory, anchorBottom) {
     name = (name || "").toUpperCase();
     const size = fitFont(c, name, maxW, isStory ? 42 : 38, "800", 20);
-    c.font = "800 " + size + "px " + FONT; c.fillStyle = color; c.textAlign = "center"; c.textBaseline = "alphabetic";
+    c.font = "800 " + size + "px " + FONT;
+    const lines = wrapLines(c, name, maxW);
+    // anchorBottom: y je účaří POSLEDNÍho řádku (blok roste nahoru) – vhodné nad znak
+    let startY = anchorBottom ? (y - (lines.length - 1) * (size + 4)) : y;
+    c.fillStyle = color; c.textAlign = "center"; c.textBaseline = "alphabetic";
     c.save(); c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 8;
-    let yy = y; for (const ln of wrapLines(c, name, maxW)) { c.fillText(ln, cx, yy); yy += size + 4; }
+    let yy = startY; for (const ln of lines) { c.fillText(ln, cx, yy); yy += size + 4; }
     c.restore();
   }
 
@@ -276,6 +339,43 @@
     return brumWin ? { text: "VÝHRA", color: "#16a34a" } : { text: "PROHRA", color: "#dc2626" };
   }
 
+  // panel střelců (tmavý, s linkami) – sdílený statikou i animací
+  function drawScorersPanel(c, w, h, cx, scorers, isStory) {
+    const ts = isStory ? 32 : 30;
+    const line = scorers.join(", ");
+    const ls = fitFont(c, line, w * 0.74, isStory ? 36 : 34, "600", 20);
+    c.font = "600 " + ls + "px " + FONT;
+    const sLines = wrapLines(c, line, w * 0.74);
+    const padX = 46, padY = 28, innerGap = 16;
+    c.font = "800 " + ts + "px " + FONT;
+    let contentW = c.measureText("STŘELCI").width;
+    c.font = "600 " + ls + "px " + FONT;
+    for (const ln of sLines) contentW = Math.max(contentW, c.measureText(ln).width);
+    const panelW = Math.min(w * 0.9, contentW + padX * 2);
+    const panelH = padY * 2 + ts + innerGap + sLines.length * ls + (sLines.length - 1) * 8;
+    const panelTop = Math.round(h * (isStory ? 0.74 : 0.72));
+
+    c.save();
+    c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 18; c.shadowOffsetY = 6;
+    c.fillStyle = "rgba(9,20,28,0.58)";
+    roundRect(c, cx - panelW / 2, panelTop, panelW, panelH, 22); c.fill();
+    c.restore();
+
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    const ty = panelTop + padY + ts * 0.82;
+    c.font = "800 " + ts + "px " + FONT;
+    const tW = c.measureText("STŘELCI").width;
+    const ll = isStory ? 96 : 78, glp = 20, ly = ty - ts * 0.30;
+    c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(cx - tW / 2 - glp - ll, ly); c.lineTo(cx - tW / 2 - glp, ly); c.stroke();
+    c.beginPath(); c.moveTo(cx + tW / 2 + glp, ly); c.lineTo(cx + tW / 2 + glp + ll, ly); c.stroke();
+    c.fillStyle = "#ffffff"; c.fillText("STŘELCI", cx, ty);
+
+    c.font = "600 " + ls + "px " + FONT; c.fillStyle = "rgba(255,255,255,0.97)";
+    let yy = ty + innerGap + ls;
+    for (const ln of sLines) { c.fillText(ln, cx, yy); yy += ls + 8; }
+  }
+
   /* ---------- RESULT (VS split) ---------- */
   function renderResult(c, w, h, model) {
     const r = model.result, colors = model.colors;
@@ -310,7 +410,7 @@
     }
 
     // znaky + skóre
-    const rowY = isStory ? Math.round(h * 0.36) : Math.round(h * 0.40);
+    const rowY = isStory ? Math.round(h * 0.42) : Math.round(h * 0.46);
     const logoSize = isStory ? 250 : 236;
     const colHome = w * 0.215, colAway = w * 0.785;
     const Rc = isStory ? Math.round(w * 0.155) : Math.round(w * 0.15);
@@ -318,78 +418,22 @@
     drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, r.home, colHome, rowY, logoSize, colors);
     drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, r.away, colAway, rowY, logoSize, colors);
 
-    // střední bílý kruh se skóre (přes předěl)
-    c.save();
-    c.shadowColor = "rgba(0,0,0,0.32)"; c.shadowBlur = 32; c.shadowOffsetY = 10;
-    c.fillStyle = "#ffffff"; c.beginPath(); c.arc(cx, rowY, Rc, 0, Math.PI * 2); c.fill();
-    c.restore();
-    const hasHalf = (r.half || "").trim();
-    const score = (r.hs || "0") + " : " + (r.as || "0");
-    c.fillStyle = "#0b1f2a"; c.textAlign = "center"; c.textBaseline = "middle";
-    let sSize = isStory ? 210 : 196;
-    c.font = "400 " + sSize + "px " + SCORE_FONT;
-    while (c.measureText(score).width > Rc * 1.6 && sSize > 80) { sSize -= 2; c.font = "400 " + sSize + "px " + SCORE_FONT; }
-    c.fillText(score, cx, rowY - (hasHalf ? Rc * 0.12 : 0) + sSize * 0.04);
-    c.textBaseline = "alphabetic";
-    if (hasHalf) {
-      c.fillStyle = "rgba(11,31,42,0.6)"; c.font = "700 " + (isStory ? 30 : 28) + "px " + FONT;
-      c.fillText("( " + r.half.trim() + " )", cx, rowY + Rc * 0.5);
-    }
+    // jména týmů NAD znaky (ať se dole neperou s výsledkem)
+    const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
+    drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
+    drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
 
-    // plaketa výsledku – zasazená těsně pod kruh
+    // skóre (zaoblený obdélník)
+    drawScoreBadge(c, cx, rowY, Rc, r.hs, r.as, r.half, isStory);
+
+    // výsledek decentně (bílý text + barevná linka)
     const label = resultLabel(r, colors);
-    c.font = "900 " + (isStory ? 42 : 38) + "px " + FONT;
-    const pillW = c.measureText(label.text).width + 92, pillH = isStory ? 74 : 68;
-    const plaqueTop = Math.round(rowY + Rc - pillH * 0.30);
-    c.save();
-    c.shadowColor = "rgba(0,0,0,0.32)"; c.shadowBlur = 20; c.shadowOffsetY = 8;
-    c.fillStyle = label.color; roundRect(c, cx - pillW / 2, plaqueTop, pillW, pillH, pillH / 2); c.fill();
-    c.restore();
-    c.fillStyle = "#fff"; c.textAlign = "center"; c.textBaseline = "middle";
-    c.fillText(label.text, cx, plaqueTop + pillH / 2 + 1); c.textBaseline = "alphabetic";
-
-    // jména týmů pod znaky (vedle plakety, zalomí se do 2 řádků)
-    const namesY = plaqueTop + pillH + (isStory ? 40 : 34);
-    drawTeamNameCol(c, r.home, colHome, namesY, w * 0.38, leftTxt, isStory);
-    drawTeamNameCol(c, r.away, colAway, namesY, w * 0.38, rightTxt, isStory);
+    const labelBaseY = rowY + Rc + (isStory ? 64 : 56);
+    drawResultLabel(c, cx, labelBaseY, label, isStory);
 
     // střelci – na tmavém panelu (aby nezanikli na bílém předělu)
     const scorers = (r.scorers || []).filter(Boolean);
-    if (scorers.length) {
-      const ts = isStory ? 32 : 30;
-      const line = scorers.join(", ");
-      const ls = fitFont(c, line, w * 0.74, isStory ? 36 : 34, "600", 20);
-      c.font = "600 " + ls + "px " + FONT;
-      const sLines = wrapLines(c, line, w * 0.74);
-      const padX = 46, padY = 28, innerGap = 16;
-      c.font = "800 " + ts + "px " + FONT;
-      let contentW = c.measureText("STŘELCI").width;
-      c.font = "600 " + ls + "px " + FONT;
-      for (const ln of sLines) contentW = Math.max(contentW, c.measureText(ln).width);
-      const panelW = Math.min(w * 0.9, contentW + padX * 2);
-      const panelH = padY * 2 + ts + innerGap + sLines.length * ls + (sLines.length - 1) * 8;
-      const panelTop = Math.round(h * (isStory ? 0.74 : 0.72));
-
-      c.save();
-      c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 18; c.shadowOffsetY = 6;
-      c.fillStyle = "rgba(9,20,28,0.58)";
-      roundRect(c, cx - panelW / 2, panelTop, panelW, panelH, 22); c.fill();
-      c.restore();
-
-      c.textAlign = "center"; c.textBaseline = "alphabetic";
-      const ty = panelTop + padY + ts * 0.82;
-      c.font = "800 " + ts + "px " + FONT;
-      const tW = c.measureText("STŘELCI").width;
-      const ll = isStory ? 96 : 78, glp = 20, ly = ty - ts * 0.30;
-      c.strokeStyle = "rgba(255,255,255,0.55)"; c.lineWidth = 3;
-      c.beginPath(); c.moveTo(cx - tW / 2 - glp - ll, ly); c.lineTo(cx - tW / 2 - glp, ly); c.stroke();
-      c.beginPath(); c.moveTo(cx + tW / 2 + glp, ly); c.lineTo(cx + tW / 2 + glp + ll, ly); c.stroke();
-      c.fillStyle = "#ffffff"; c.fillText("STŘELCI", cx, ty);
-
-      c.font = "600 " + ls + "px " + FONT; c.fillStyle = "rgba(255,255,255,0.97)";
-      let yy = ty + innerGap + ls;
-      for (const ln of sLines) { c.fillText(ln, cx, yy); yy += ls + 8; }
-    }
+    if (scorers.length) drawScorersPanel(c, w, h, cx, scorers, isStory);
 
     // datum (velké) + patička (bíle)
     if ((r.date || "").trim()) {
@@ -408,6 +452,160 @@
     c.textAlign = "left";
   }
 
+  /* ---------- RESULT (animovaná varianta pro video) ---------- */
+  function renderResultFrame(c, w, h, model, p) {
+    const r = model.result, colors = model.colors;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+    const homeIsBrum = (r.home || "").toLowerCase().includes("brumovice");
+    const clubCol = (colors.primary && colors.primary[0] === "#") ? colors.primary : "#0fb5ac";
+    const oppCol = dominantColor(model.oppLogo) || mixHex(clubCol, "#0b1220", 0.55);
+    const leftCol = homeIsBrum ? clubCol : oppCol;
+    const rightCol = homeIsBrum ? oppCol : clubCol;
+    const leftTxt = onColor(leftCol), rightTxt = onColor(rightCol);
+
+    // pozadí: půlky přijedou ze stran, pak čistý split
+    function fillHalfAnim(col, side, dx) {
+      const topX = w * 0.56 + dx, botX = w * 0.44 + dx;
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, shade(col, 8)); g.addColorStop(1, shade(col, -28));
+      c.fillStyle = g; c.beginPath();
+      if (side === "left") { c.moveTo(-w, 0); c.lineTo(topX, 0); c.lineTo(botX, h); c.lineTo(-w, h); }
+      else { c.moveTo(topX, 0); c.lineTo(2 * w, 0); c.lineTo(2 * w, h); c.lineTo(botX, h); }
+      c.closePath(); c.fill();
+    }
+    if (p < 0.30) {
+      c.fillStyle = "#0b1220"; c.fillRect(0, 0, w, h);
+      const eL = easeOutCubic(seg(p, 0, 0.26)), eR = easeOutCubic(seg(p, 0.05, 0.30));
+      fillHalfAnim(leftCol, "left", -(1 - eL) * w * 0.62);
+      fillHalfAnim(rightCol, "right", (1 - eR) * w * 0.62);
+      const vg = c.createRadialGradient(w / 2, h * 0.42, h * 0.14, w / 2, h * 0.5, h * 0.9);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.30)");
+      c.fillStyle = vg; c.fillRect(0, 0, w, h);
+    } else {
+      drawSplitBackground(c, w, h, leftCol, rightCol);
+    }
+
+    // vodoznaky (fade in)
+    const wmA = easeOutCubic(seg(p, 0.26, 0.48)) * 0.13;
+    if (wmA > 0) {
+      drawHalfWatermark(c, w, h, homeIsBrum ? model.logo : model.oppLogo, "left", wmA);
+      drawHalfWatermark(c, w, h, homeIsBrum ? model.oppLogo : model.logo, "right", wmA);
+    }
+
+    // hlavička
+    {
+      const a = easeOutCubic(seg(p, 0.16, 0.38)), dy = (1 - a) * (-26);
+      if (a > 0) {
+        c.save(); c.globalAlpha = a;
+        let y = isStory ? 150 : 74;
+        y = drawTeamBadge(c, cx, y + dy, model);
+        y += (isStory ? 46 : 40);
+        const compTxt = (r.comp || "").toUpperCase();
+        if (compTxt) {
+          c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+          const cs = fitFont(c, compTxt, w * 0.8, isStory ? 34 : 32, "800", 18);
+          c.font = "800 " + cs + "px " + FONT; c.fillText(compTxt, cx, y);
+        }
+        c.restore();
+      }
+    }
+
+    const rowY = isStory ? Math.round(h * 0.42) : Math.round(h * 0.46);
+    const logoSize = isStory ? 250 : 236;
+    const colHome = w * 0.215, colAway = w * 0.785;
+    const Rc = isStory ? Math.round(w * 0.155) : Math.round(w * 0.15);
+
+    // znaky přijedou ze stran
+    {
+      const e = easeOutCubic(seg(p, 0.30, 0.52));
+      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, r.home, colHome - (1 - e) * w * 0.16, rowY, logoSize, colors); c.restore(); }
+    }
+    {
+      const e = easeOutCubic(seg(p, 0.36, 0.58));
+      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, r.away, colAway + (1 - e) * w * 0.16, rowY, logoSize, colors); c.restore(); }
+    }
+
+    // jména týmů NAD znaky
+    {
+      const e = easeOutCubic(seg(p, 0.42, 0.60)), dy = (1 - e) * -14;
+      if (e > 0) {
+        c.save(); c.globalAlpha = e; c.translate(0, dy);
+        const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
+        drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
+        drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
+        c.restore();
+      }
+    }
+
+    // skóre – pop
+    {
+      const e = easeOutBack(seg(p, 0.50, 0.68)), a = seg(p, 0.50, 0.60);
+      if (a > 0) {
+        c.save(); c.globalAlpha = Math.min(1, a);
+        c.translate(cx, rowY); c.scale(Math.max(0.001, e), Math.max(0.001, e)); c.translate(-cx, -rowY);
+        drawScoreBadge(c, cx, rowY, Rc, r.hs, r.as, r.half, isStory);
+        c.restore();
+      }
+    }
+
+    // výsledek – pop (decentní)
+    const label = resultLabel(r, colors);
+    const labelBaseY = rowY + Rc + (isStory ? 64 : 56);
+    {
+      const e = easeOutBack(seg(p, 0.62, 0.78)), a = seg(p, 0.62, 0.72);
+      if (a > 0) {
+        const pcy = labelBaseY - (isStory ? 46 : 42) * 0.35;
+        c.save(); c.globalAlpha = Math.min(1, a);
+        c.translate(cx, pcy); c.scale(Math.max(0.001, e), Math.max(0.001, e)); c.translate(-cx, -pcy);
+        drawResultLabel(c, cx, labelBaseY, label, isStory);
+        c.restore();
+      }
+    }
+
+    // střelci
+    const scorers = (r.scorers || []).filter(Boolean);
+    if (scorers.length) {
+      const e = easeOutCubic(seg(p, 0.78, 0.93)), dy = (1 - e) * 22;
+      if (e > 0) { c.save(); c.globalAlpha = e; c.translate(0, dy); drawScorersPanel(c, w, h, cx, scorers, isStory); c.restore(); }
+    }
+
+    // datum
+    {
+      const a = easeOutCubic(seg(p, 0.84, 0.96));
+      if (a > 0 && (r.date || "").trim()) {
+        c.save(); c.globalAlpha = a; c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 6;
+        c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+        c.font = "800 " + (isStory ? 40 : 36) + "px " + FONT;
+        c.fillText(r.date, cx, isStory ? h - 130 : h - 92); c.restore();
+      }
+    }
+    // patička
+    {
+      const a = easeOutCubic(seg(p, 0.90, 1.0));
+      const footer = (model.footer || "").trim();
+      if (a > 0 && footer) {
+        c.save(); c.globalAlpha = a;
+        c.fillStyle = "rgba(255,255,255,0.85)"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+        c.font = "700 " + (isStory ? 28 : 26) + "px " + FONT;
+        c.fillText(footer, cx, isStory ? h - 84 : h - 52); c.restore();
+      }
+    }
+
+    // světelný přejezd
+    {
+      const sp = seg(p, 0.30, 0.62);
+      if (sp > 0 && sp < 1) {
+        c.save();
+        const bandW = w * 0.45, xpos = -bandW + (w + bandW * 2) * easeInOut(sp);
+        const g = c.createLinearGradient(xpos, 0, xpos + bandW, 0);
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,0.10)"); g.addColorStop(1, "rgba(255,255,255,0)");
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+        c.restore();
+      }
+    }
+    c.textAlign = "left";
+  }
+
   /* ---------- INVITE ---------- */
   function drawInfoCol(c, label, value, cx, y, maxW, colors, tx) {
     c.textAlign = "center"; c.textBaseline = "alphabetic";
@@ -420,199 +618,230 @@
     for (const ln of wrapLines(c, value, maxW).slice(0, 2)) { c.fillText(ln, cx, vy); vy += vs + 4; }
   }
 
-  function renderInvite(c, w, h, model) {
-    const iv = model.invite, colors = model.colors, tx = colors.text;
-    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+  // střední plaketa „VS" (stejný tvar jako skóre u výsledku)
+  function drawVsBadge(c, cx, cy, Rc, isStory) {
+    const boxH = Rc * 1.5, boxW = Rc * 1.9;
+    const bx = cx - boxW / 2, byy = cy - boxH / 2, rad = Math.min(Rc * 0.42, boxH * 0.28);
+    c.save();
+    c.shadowColor = "rgba(0,0,0,0.22)"; c.shadowBlur = 22; c.shadowOffsetY = 8;
+    c.fillStyle = "rgba(30,37,48,0.62)";
+    roundRect(c, bx, byy, boxW, boxH, rad); c.fill();
+    c.restore();
+    c.save();
+    const lw = Math.max(4, Rc * 0.032); c.lineWidth = lw; c.strokeStyle = "rgba(255,255,255,0.9)";
+    roundRect(c, bx + lw / 2 + 1, byy + lw / 2 + 1, boxW - lw - 2, boxH - lw - 2, Math.max(2, rad - lw / 2)); c.stroke();
+    c.restore();
+    c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "middle";
+    c.font = "900 italic " + (isStory ? 92 : 84) + "px " + FONT;
+    c.fillText("VS", cx, cy + (isStory ? 4 : 3));
+    c.textBaseline = "alphabetic";
+  }
 
+  // spodní panel pozvánky: DATUM + ČAS + místo/soutěž (tmavé „sklo", čitelné na splitu)
+  function drawInvitePanel(c, w, h, cx, iv, colors, isStory) {
+    const dt = (iv.date || "").trim();
+    const tm = (iv.time || "").trim();
+    const infoLine = [(iv.venue || "").trim(), (iv.comp || "").trim()].filter(Boolean).join("  •  ");
+    const dateSz = isStory ? 58 : 52, timeSz = isStory ? 46 : 42, infoSz = isStory ? 30 : 28;
+    const padX = 54, padY = 34, gap = 16;
+
+    c.font = "900 " + dateSz + "px " + FONT;
+    let contentW = dt ? c.measureText(dt.toUpperCase()).width : 0;
+    if (tm) { c.font = "800 " + timeSz + "px " + FONT; contentW = Math.max(contentW, c.measureText(tm).width); }
+    if (infoLine) { c.font = "700 " + infoSz + "px " + FONT; contentW = Math.max(contentW, c.measureText(infoLine).width); }
+    const panelW = Math.min(w * 0.9, contentW + padX * 2);
+    let panelH = padY * 2;
+    if (dt) panelH += dateSz;
+    if (tm) panelH += (dt ? gap : 0) + timeSz;
+    if (infoLine) panelH += ((dt || tm) ? gap : 0) + infoSz;
+    const panelTop = Math.round(h * (isStory ? 0.68 : 0.66));
+
+    c.save();
+    c.shadowColor = "rgba(0,0,0,0.28)"; c.shadowBlur = 18; c.shadowOffsetY = 6;
+    c.fillStyle = "rgba(9,20,28,0.58)";
+    roundRect(c, cx - panelW / 2, panelTop, panelW, panelH, 22); c.fill();
+    c.restore();
+
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    let yy = panelTop + padY;
+    if (dt) {
+      c.fillStyle = "#ffffff"; c.font = "900 " + dateSz + "px " + FONT;
+      c.fillText(dt.toUpperCase(), cx, yy + dateSz * 0.82); yy += dateSz + ((tm || infoLine) ? gap : 0);
+    }
+    if (tm) {
+      c.fillStyle = "#ffffff"; c.font = "800 " + timeSz + "px " + FONT;
+      c.fillText(tm, cx, yy + timeSz * 0.82); yy += timeSz + (infoLine ? gap : 0);
+    }
+    if (infoLine) {
+      c.fillStyle = "rgba(255,255,255,0.92)"; c.font = "700 " + infoSz + "px " + FONT;
+      c.fillText(infoLine, cx, yy + infoSz * 0.82);
+    }
+  }
+
+  /* ---------- INVITE (VS split) ---------- */
+  function renderInvite(c, w, h, model) {
+    const iv = model.invite, colors = model.colors;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+    const homeIsBrum = iv.side !== "away";
+
+    const clubCol = (colors.primary && colors.primary[0] === "#") ? colors.primary : "#0fb5ac";
+    const oppCol = dominantColor(model.oppLogo) || mixHex(clubCol, "#0b1220", 0.55);
+    const leftCol = homeIsBrum ? clubCol : oppCol;
+    const rightCol = homeIsBrum ? oppCol : clubCol;
+    const leftTxt = onColor(leftCol), rightTxt = onColor(rightCol);
+
+    drawSplitBackground(c, w, h, leftCol, rightCol);
+    drawHalfWatermark(c, w, h, homeIsBrum ? model.logo : model.oppLogo, "left");
+    drawHalfWatermark(c, w, h, homeIsBrum ? model.oppLogo : model.logo, "right");
+
+    // hlavička: odznak + titul (bíle)
     let y = isStory ? 150 : 74;
     y = drawTeamBadge(c, cx, y, model);
-    y += 52;
-
-    // nadpis / výzva
+    y += (isStory ? 46 : 40);
     c.textAlign = "center"; c.textBaseline = "alphabetic";
     const title = (iv.title || "").toUpperCase();
     if (title) {
-      c.fillStyle = colors.primary;
-      const ts = fitFont(c, title, w * 0.86, 44, "800", 24);
-      c.font = "800 " + ts + "px " + FONT; c.fillText(title, cx, y);
+      c.save(); c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = 8;
+      c.fillStyle = "#ffffff";
+      const ts = fitFont(c, title, w * 0.8, isStory ? 34 : 32, "800", 18);
+      c.font = "800 " + ts + "px " + FONT; c.fillText(title, cx, y); c.restore();
     }
 
-    // loga + kroužek VS
-    const rowY = isStory ? h * 0.30 : h * 0.33;
-    const logoSize = isStory ? 210 : 188;
-    const homeIsBrum = iv.side !== "away";
+    // znaky + VS
+    const rowY = isStory ? Math.round(h * 0.40) : Math.round(h * 0.42);
+    const logoSize = isStory ? 250 : 236;
+    const colHome = w * 0.215, colAway = w * 0.785;
+    const Rc = isStory ? Math.round(w * 0.13) : Math.round(w * 0.125);
     const leftName = homeIsBrum ? "Sokol Brumovice" : iv.opp;
     const rightName = homeIsBrum ? iv.opp : "Sokol Brumovice";
-    const leftLogo = homeIsBrum ? model.logo : model.oppLogo;
-    const rightLogo = homeIsBrum ? model.oppLogo : model.logo;
-    drawCrest(c, leftLogo, leftName, w * 0.27, rowY, logoSize, colors);
-    drawCrest(c, rightLogo, rightName, w * 0.73, rowY, logoSize, colors);
 
-    c.save();
-    c.beginPath(); c.arc(cx, rowY, 48, 0, Math.PI * 2); c.fillStyle = colors.primary; c.fill();
-    c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
-    c.font = "900 italic 40px " + FONT; c.fillText("VS", cx, rowY + 2);
-    c.restore(); c.textBaseline = "alphabetic";
+    drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, leftName, colHome, rowY, logoSize, colors);
+    drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, rightName, colAway, rowY, logoSize, colors);
 
-    drawTeamName(c, leftName, w * 0.27, rowY + logoSize / 2 + 50, w * 0.42, colors);
-    drawTeamName(c, rightName, w * 0.73, rowY + logoSize / 2 + 50, w * 0.42, colors);
+    // jména NAD znaky
+    const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
+    drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
+    drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
 
-    // datum (velké) + čas v pilulce
-    let by = isStory ? h * 0.58 : h * 0.585;
-    c.textAlign = "center";
-    const dt = (iv.date || "").trim();
-    if (dt) {
-      c.fillStyle = tx;
-      const ds = fitFont(c, dt, w * 0.8, 60, "900", 34);
-      c.font = "900 " + ds + "px " + FONT; c.fillText(dt, cx, by); by += 34;
+    drawVsBadge(c, cx, rowY, Rc, isStory);
+
+    drawInvitePanel(c, w, h, cx, iv, colors, isStory);
+
+    // patička (bíle)
+    const footer = (model.footer || "").trim();
+    if (footer) {
+      c.fillStyle = "rgba(255,255,255,0.85)"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+      c.font = "700 " + (isStory ? 28 : 26) + "px " + FONT;
+      c.fillText(footer, cx, isStory ? h - 84 : h - 52);
     }
-    const tm = (iv.time || "").trim();
-    if (tm) {
-      by += 30;
-      c.font = "800 38px " + FONT;
-      const pw = c.measureText(tm).width + 66;
-      c.fillStyle = colors.primary; roundRect(c, cx - pw / 2, by - 44, pw, 62, 31); c.fill();
-      c.fillStyle = pillTextColor(colors.primary); c.textBaseline = "middle";
-      c.fillText(tm, cx, by - 44 + 32); c.textBaseline = "alphabetic";
-      by += 40;
-    }
-
-    // oddělovač
-    by += 36;
-    c.strokeStyle = overlay(colors, 0.18); c.lineWidth = 2;
-    c.beginPath(); c.moveTo(w * 0.22, by); c.lineTo(w * 0.78, by); c.stroke();
-    by += 58;
-
-    // KDE / SOUTĚŽ – čisté popisky bez ikon
-    const cols = [];
-    if ((iv.venue || "").trim()) cols.push(["Kde", iv.venue.trim()]);
-    if ((iv.comp || "").trim()) cols.push(["Soutěž", iv.comp.trim()]);
-    if (cols.length === 1) {
-      drawInfoCol(c, cols[0][0], cols[0][1], cx, by, w * 0.8, colors, tx);
-    } else if (cols.length === 2) {
-      drawInfoCol(c, cols[0][0], cols[0][1], w * 0.30, by, w * 0.42, colors, tx);
-      drawInfoCol(c, cols[1][0], cols[1][1], w * 0.70, by, w * 0.42, colors, tx);
-    }
-    drawFooter(c, w, h, model);
+    c.textAlign = "left";
   }
 
   /* ---------- INVITE (animovaná varianta pro video) ---------- */
   // p = 0..1 (průběh úvodní animace). Při p>=1 vypadá stejně jako statická pozvánka.
   function renderInviteFrame(c, w, h, model, p) {
-    const iv = model.invite, colors = model.colors, tx = colors.text;
+    const iv = model.invite, colors = model.colors;
     const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
-    const base = isStory ? 150 : 74;
+    const homeIsBrum = iv.side !== "away";
+    const clubCol = (colors.primary && colors.primary[0] === "#") ? colors.primary : "#0fb5ac";
+    const oppCol = dominantColor(model.oppLogo) || mixHex(clubCol, "#0b1220", 0.55);
+    const leftCol = homeIsBrum ? clubCol : oppCol;
+    const rightCol = homeIsBrum ? oppCol : clubCol;
+    const leftTxt = onColor(leftCol), rightTxt = onColor(rightCol);
 
-    drawBackground(c, w, h, colors);
+    // pozadí: půlky přijedou ze stran, pak čistý split
+    function fillHalfAnim(col, side, dx) {
+      const topX = w * 0.56 + dx, botX = w * 0.44 + dx;
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, shade(col, 8)); g.addColorStop(1, shade(col, -28));
+      c.fillStyle = g; c.beginPath();
+      if (side === "left") { c.moveTo(-w, 0); c.lineTo(topX, 0); c.lineTo(botX, h); c.lineTo(-w, h); }
+      else { c.moveTo(topX, 0); c.lineTo(2 * w, 0); c.lineTo(2 * w, h); c.lineTo(botX, h); }
+      c.closePath(); c.fill();
+    }
+    if (p < 0.30) {
+      c.fillStyle = "#0b1220"; c.fillRect(0, 0, w, h);
+      const eL = easeOutCubic(seg(p, 0, 0.26)), eR = easeOutCubic(seg(p, 0.05, 0.30));
+      fillHalfAnim(leftCol, "left", -(1 - eL) * w * 0.62);
+      fillHalfAnim(rightCol, "right", (1 - eR) * w * 0.62);
+      const vg = c.createRadialGradient(w / 2, h * 0.42, h * 0.14, w / 2, h * 0.5, h * 0.9);
+      vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,0.30)");
+      c.fillStyle = vg; c.fillRect(0, 0, w, h);
+    } else {
+      drawSplitBackground(c, w, h, leftCol, rightCol);
+    }
 
-    // odznak + nadpis (sjede shora)
+    // vodoznaky (fade in)
+    const wmA = easeOutCubic(seg(p, 0.26, 0.48)) * 0.13;
+    if (wmA > 0) {
+      drawHalfWatermark(c, w, h, homeIsBrum ? model.logo : model.oppLogo, "left", wmA);
+      drawHalfWatermark(c, w, h, homeIsBrum ? model.oppLogo : model.logo, "right", wmA);
+    }
+
+    // hlavička (odznak + titul)
     {
-      const a = easeOutCubic(seg(p, 0.05, 0.28)), dy = (1 - a) * (-28);
+      const a = easeOutCubic(seg(p, 0.16, 0.38)), dy = (1 - a) * (-26);
       if (a > 0) {
         c.save(); c.globalAlpha = a;
-        drawTeamBadge(c, cx, base + dy, model);
+        let yy = (isStory ? 150 : 74) + dy;
+        yy = drawTeamBadge(c, cx, yy, model);
+        yy += (isStory ? 46 : 40);
         const title = (iv.title || "").toUpperCase();
         if (title) {
-          c.fillStyle = colors.primary; c.textAlign = "center"; c.textBaseline = "alphabetic";
-          const ts = fitFont(c, title, w * 0.86, 44, "800", 24);
-          c.font = "800 " + ts + "px " + FONT; c.fillText(title, cx, base + 98 + dy);
+          c.fillStyle = "#ffffff"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+          const ts = fitFont(c, title, w * 0.8, isStory ? 34 : 32, "800", 18);
+          c.font = "800 " + ts + "px " + FONT; c.fillText(title, cx, yy);
         }
         c.restore();
       }
     }
 
-    // loga + VS
-    const rowY = isStory ? h * 0.30 : h * 0.33;
-    const logoSize = isStory ? 210 : 188;
-    const homeIsBrum = iv.side !== "away";
+    const rowY = isStory ? Math.round(h * 0.40) : Math.round(h * 0.42);
+    const logoSize = isStory ? 250 : 236;
+    const colHome = w * 0.215, colAway = w * 0.785;
+    const Rc = isStory ? Math.round(w * 0.13) : Math.round(w * 0.125);
     const leftName = homeIsBrum ? "Sokol Brumovice" : iv.opp;
     const rightName = homeIsBrum ? iv.opp : "Sokol Brumovice";
-    const leftLogo = homeIsBrum ? model.logo : model.oppLogo;
-    const rightLogo = homeIsBrum ? model.oppLogo : model.logo;
+
+    // znaky přijedou ze stran
     {
-      const e = easeOutCubic(seg(p, 0.18, 0.44));
-      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, leftLogo, leftName, w * 0.27 - (1 - e) * w * 0.22, rowY, logoSize, colors); c.restore(); }
+      const e = easeOutCubic(seg(p, 0.30, 0.52));
+      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, leftName, colHome - (1 - e) * w * 0.16, rowY, logoSize, colors); c.restore(); }
     }
     {
-      const e = easeOutCubic(seg(p, 0.24, 0.50));
-      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, rightLogo, rightName, w * 0.73 + (1 - e) * w * 0.22, rowY, logoSize, colors); c.restore(); }
+      const e = easeOutCubic(seg(p, 0.36, 0.58));
+      if (e > 0) { c.save(); c.globalAlpha = e; drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, rightName, colAway + (1 - e) * w * 0.16, rowY, logoSize, colors); c.restore(); }
     }
+
+    // jména NAD znaky
     {
-      const e = easeOutBack(seg(p, 0.44, 0.62)), a = seg(p, 0.44, 0.56);
+      const e = easeOutCubic(seg(p, 0.42, 0.60)), dy = (1 - e) * -14;
+      if (e > 0) {
+        c.save(); c.globalAlpha = e; c.translate(0, dy);
+        const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
+        drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
+        drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
+        c.restore();
+      }
+    }
+
+    // VS – pop
+    {
+      const e = easeOutBack(seg(p, 0.52, 0.70)), a = seg(p, 0.52, 0.64);
       if (a > 0) {
         c.save(); c.globalAlpha = Math.min(1, a);
         c.translate(cx, rowY); c.scale(Math.max(0.001, e), Math.max(0.001, e)); c.translate(-cx, -rowY);
-        c.beginPath(); c.arc(cx, rowY, 48, 0, Math.PI * 2); c.fillStyle = colors.primary; c.fill();
-        c.fillStyle = pillTextColor(colors.primary); c.textAlign = "center"; c.textBaseline = "middle";
-        c.font = "900 italic 40px " + FONT; c.fillText("VS", cx, rowY + 2); c.textBaseline = "alphabetic";
+        drawVsBadge(c, cx, rowY, Rc, isStory);
         c.restore();
       }
     }
+
+    // spodní panel – fade + rise
     {
-      const e = easeOutCubic(seg(p, 0.52, 0.70)), dy = (1 - e) * 18;
+      const e = easeOutCubic(seg(p, 0.66, 0.88)), dy = (1 - e) * 24;
       if (e > 0) {
         c.save(); c.globalAlpha = e; c.translate(0, dy);
-        drawTeamName(c, leftName, w * 0.27, rowY + logoSize / 2 + 50, w * 0.42, colors);
-        drawTeamName(c, rightName, w * 0.73, rowY + logoSize / 2 + 50, w * 0.42, colors);
-        c.restore();
-      }
-    }
-
-    // datum + čas
-    let by = isStory ? h * 0.58 : h * 0.585;
-    c.textAlign = "center";
-    const dt = (iv.date || "").trim();
-    if (dt) {
-      const e = easeOutBack(seg(p, 0.58, 0.74)), a = seg(p, 0.58, 0.70);
-      const ds = fitFont(c, dt, w * 0.8, 60, "900", 34);
-      if (a > 0) {
-        c.save(); c.globalAlpha = Math.min(1, a);
-        c.translate(cx, by); c.scale(Math.max(0.001, e), Math.max(0.001, e)); c.translate(-cx, -by);
-        c.fillStyle = tx; c.textBaseline = "alphabetic"; c.font = "900 " + ds + "px " + FONT; c.fillText(dt, cx, by);
-        c.restore();
-      }
-      by += 34;
-    }
-    const tm = (iv.time || "").trim();
-    if (tm) {
-      by += 30;
-      const e = easeOutCubic(seg(p, 0.66, 0.80)), dy = (1 - e) * 22;
-      if (e > 0) {
-        c.save(); c.globalAlpha = e;
-        c.font = "800 38px " + FONT; const pw = c.measureText(tm).width + 66;
-        c.fillStyle = colors.primary; roundRect(c, cx - pw / 2, by - 44 + dy, pw, 62, 31); c.fill();
-        c.fillStyle = pillTextColor(colors.primary); c.textBaseline = "middle";
-        c.fillText(tm, cx, by - 44 + 32 + dy); c.textBaseline = "alphabetic";
-        c.restore();
-      }
-      by += 40;
-    }
-
-    // oddělovač (roste od středu)
-    by += 36;
-    {
-      const e = easeInOut(seg(p, 0.72, 0.86));
-      if (e > 0) {
-        const half = (w * 0.78 - w * 0.22) / 2 * e;
-        c.save(); c.strokeStyle = overlay(colors, 0.18); c.lineWidth = 2;
-        c.beginPath(); c.moveTo(cx - half, by); c.lineTo(cx + half, by); c.stroke(); c.restore();
-      }
-    }
-    by += 58;
-
-    // KDE / SOUTĚŽ
-    {
-      const e = easeOutCubic(seg(p, 0.80, 0.96)), dy = (1 - e) * 16;
-      if (e > 0) {
-        c.save(); c.globalAlpha = e;
-        const cols = [];
-        if ((iv.venue || "").trim()) cols.push(["Kde", iv.venue.trim()]);
-        if ((iv.comp || "").trim()) cols.push(["Soutěž", iv.comp.trim()]);
-        if (cols.length === 1) drawInfoCol(c, cols[0][0], cols[0][1], cx, by + dy, w * 0.8, colors, tx);
-        else if (cols.length === 2) {
-          drawInfoCol(c, cols[0][0], cols[0][1], w * 0.30, by + dy, w * 0.42, colors, tx);
-          drawInfoCol(c, cols[1][0], cols[1][1], w * 0.70, by + dy, w * 0.42, colors, tx);
-        }
+        drawInvitePanel(c, w, h, cx, iv, colors, isStory);
         c.restore();
       }
     }
@@ -620,17 +849,26 @@
     // patička
     {
       const a = easeOutCubic(seg(p, 0.90, 1.0));
-      if (a > 0) { c.save(); c.globalAlpha = a; drawFooter(c, w, h, model); c.restore(); }
+      if (a > 0) {
+        c.save(); c.globalAlpha = a;
+        const footer = (model.footer || "").trim();
+        if (footer) {
+          c.fillStyle = "rgba(255,255,255,0.85)"; c.textAlign = "center"; c.textBaseline = "alphabetic";
+          c.font = "700 " + (isStory ? 28 : 26) + "px " + FONT;
+          c.fillText(footer, cx, isStory ? h - 84 : h - 52);
+        }
+        c.restore();
+      }
     }
 
-    // světelný přejezd (shine) přes celý plakát
+    // světelný přejezd (shine)
     {
-      const sp = seg(p, 0.12, 0.5);
+      const sp = seg(p, 0.30, 0.62);
       if (sp > 0 && sp < 1) {
         c.save();
         const bandW = w * 0.45, xpos = -bandW + (w + bandW * 2) * easeInOut(sp);
         const g = c.createLinearGradient(xpos, 0, xpos + bandW, 0);
-        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,0.10)"); g.addColorStop(1, "rgba(255,255,255,0)");
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,0.12)"); g.addColorStop(1, "rgba(255,255,255,0)");
         c.fillStyle = g; c.fillRect(0, 0, w, h);
         c.restore();
       }
@@ -941,14 +1179,105 @@
     drawNamePlate(c, tok, cx, cy + r + 7, d, colors, (slotW || d * 1.4) * 0.96);
   }
 
-  function renderLineup(c, w, h, model) {
-    const l = model.lineup || {}, colors = model.colors, tx = colors.text;
-    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+  // perspektivní (3D) hřiště – lichoběžník zužující se vzhůru do dálky
+  function drawPitch3D(c, x, y, w, h, colors, topScale) {
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const cxp = x + w / 2, topY = y, botY = y + h;
+    const bx0 = x, bx1 = x + w;                        // spodní (blízká) hrana
+    const tw = w * topScale, tx0 = cxp - tw / 2, tx1 = cxp + tw / 2; // horní (daleká) hrana
+    const edgeL = (t) => lerp(bx0, tx0, t), edgeR = (t) => lerp(bx1, tx1, t), rowYY = (t) => lerp(botY, topY, t);
 
+    // tráva (tmavší nahoře = do dálky)
+    const g = c.createLinearGradient(0, topY, 0, botY);
+    g.addColorStop(0, "#2c854a"); g.addColorStop(1, "#3ba05a");
+    c.save();
+    c.beginPath(); c.moveTo(tx0, topY); c.lineTo(tx1, topY); c.lineTo(bx1, botY); c.lineTo(bx0, botY); c.closePath();
+    c.fillStyle = g; c.fill(); c.clip();
+
+    // sekané pruhy do perspektivy
+    const stripes = 8;
+    for (let i = 0; i < stripes; i++) {
+      if (i % 2 !== 0) continue;
+      const t0 = i / stripes, t1 = (i + 1) / stripes;
+      c.fillStyle = "rgba(255,255,255,0.055)";
+      c.beginPath(); c.moveTo(edgeL(t0), rowYY(t0)); c.lineTo(edgeR(t0), rowYY(t0));
+      c.lineTo(edgeR(t1), rowYY(t1)); c.lineTo(edgeL(t1), rowYY(t1)); c.closePath(); c.fill();
+    }
+
+    // čáry
+    c.strokeStyle = "rgba(255,255,255,0.7)"; c.lineWidth = Math.max(2, w * 0.005);
+    // půlicí čára + kruh
+    const my = rowYY(0.5), ml = edgeL(0.5), mr = edgeR(0.5);
+    c.beginPath(); c.moveTo(ml, my); c.lineTo(mr, my); c.stroke();
+    c.beginPath(); c.ellipse((ml + mr) / 2, my, (mr - ml) * 0.14, h * 0.045, 0, 0, Math.PI * 2); c.stroke();
+    // pokutová území a branky (blízko/daleko) jako lichoběžníky
+    function band(ta, tb, fw) {
+      const yA = rowYY(ta), yB = rowYY(tb);
+      const wA = (edgeR(ta) - edgeL(ta)) * fw, wB = (edgeR(tb) - edgeL(tb)) * fw;
+      c.beginPath(); c.moveTo(cxp - wA / 2, yA); c.lineTo(cxp + wA / 2, yA);
+      c.lineTo(cxp + wB / 2, yB); c.lineTo(cxp - wB / 2, yB); c.closePath(); c.stroke();
+    }
+    band(0.0, 0.15, 0.46); band(1.0, 0.85, 0.46);   // pokutová
+    band(0.0, 0.05, 0.20); band(1.0, 0.95, 0.20);   // branková
+    c.restore();
+
+    // vnější obrys
+    c.save(); c.strokeStyle = "rgba(255,255,255,0.7)"; c.lineWidth = Math.max(2, w * 0.006);
+    c.beginPath(); c.moveTo(tx0, topY); c.lineTo(tx1, topY); c.lineTo(bx1, botY); c.lineTo(bx0, botY); c.closePath(); c.stroke();
+    c.restore();
+  }
+
+  // sdílené rozvržení sestavy (perspektiva): vrací hřiště + tokeny hráčů seřazené zezadu
+  function computeLineupLayout(c, l, w, h, headerEndY, isStory) {
+    const cx = w / 2;
+    const hasSubs = (l.subs || []).length > 0, hasCoach = !!(l.coach || "").trim();
+    const subFs = isStory ? 28 : 24, subLabelH = isStory ? 42 : 36, coachH = isStory ? 40 : 34;
+    let subLineArr = [];
+    if (hasSubs) {
+      c.font = "600 " + subFs + "px " + FONT;
+      const names = (l.subs || []).map(pp => (pp.num ? pp.num + " " : "") + surname(pp.name)).join("   •   ");
+      subLineArr = wrapLines(c, names, w * 0.9).slice(0, 2);
+    }
+    const subsH = (hasSubs ? (subLabelH + subLineArr.length * (subFs + 8)) : 0) + (hasCoach ? coachH : 0);
+    const footerReserve = (isStory ? 96 : 58) + 26;
+    const bottomGap = isStory ? 30 : 22;
+    const pitchTop = headerEndY + (isStory ? 30 : 20);
+    const pitchBottom = h - footerReserve - subsH - (subsH ? bottomGap : 0);
+    const pitchLeft = w * 0.05, pitchW = w * 0.90, pitchH = pitchBottom - pitchTop;
+    const topScale = 0.56;
+
+    const lines = l.lines || [];
+    const rows = lines.length + 1;
+    const cap = pitchH / rows;
+    const toks = [];
+    function place(arr, r) {
+      const k = arr.length; if (!k) return;
+      const nr = rows > 1 ? r / (rows - 1) : 0;
+      const t = 0.06 + nr * 0.88;                    // 0 = blízko (dole), 1 = daleko (nahoře)
+      const py = (pitchTop + pitchH) - t * pitchH;
+      const sw = 1 - t * (1 - topScale);             // měřítko podle hloubky
+      const rowW = pitchW * sw;
+      const dBase = Math.min((pitchW * 0.88) / (k + 0.3) * 0.92, cap * 0.72);
+      const d = Math.max(42, Math.min(isStory ? 150 : 128, dBase * sw));
+      const slotW = rowW * 0.9 / k;
+      for (let i = 0; i < k; i++) {
+        const px = cx + ((i + 0.5) / k - 0.5) * rowW * 0.9;
+        toks.push({ tok: arr[i], px: px, py: py, d: d, slotW: slotW, depth: t });
+      }
+    }
+    place([l.gk], 0);
+    for (let li = 0; li < lines.length; li++) place(lines[li], li + 1);
+    toks.sort((a, b) => b.depth - a.depth);          // daleké kreslit dřív (vzadu)
+
+    return { pitchLeft, pitchTop, pitchW, pitchH, pitchBottom, topScale, toks, subLineArr, hasSubs, hasCoach, subFs, subLabelH, bottomGap };
+  }
+
+  // hlavička sestavy (odznak + titul + podtitul); vrací koncové y
+  function drawLineupHeader(c, l, w, model, isStory) {
+    const cx = w / 2, colors = model.colors, tx = colors.text;
     let y = isStory ? 140 : 56;
     y = drawTeamBadge(c, cx, y, model);
-    y += isStory ? 28 : 22; // mezera pod odznakem MUŽI/DOROST
-
+    y += isStory ? 28 : 22;
     c.textAlign = "center"; c.fillStyle = tx;
     const title = (l.title || "").toUpperCase();
     if (title) {
@@ -956,7 +1285,6 @@
       c.textBaseline = "top"; c.font = "900 " + ts + "px " + FONT;
       c.fillText(title, cx, y); y += ts + (isStory ? 12 : 9);
     }
-
     const sub = [l.opp ? "vs " + l.opp : "", [l.date, l.time].filter(Boolean).join(" ")].filter(Boolean).join("  •  ");
     if (sub) {
       const ss = isStory ? 36 : 30;
@@ -964,53 +1292,30 @@
       c.fillText(sub, cx, y); y += ss;
     }
     c.textBaseline = "alphabetic";
+    return y;
+  }
 
-    // rozvržení: hřiště nahoře, náhradníci dole – výšku náhradníků spočítáme dopředu
-    const hasSubs = (l.subs || []).length > 0, hasCoach = !!(l.coach || "").trim();
-    const subFs = isStory ? 28 : 24, subLabelH = isStory ? 42 : 36, coachH = isStory ? 40 : 34;
-    let subLineArr = [];
-    if (hasSubs) {
-      c.font = "600 " + subFs + "px " + FONT;
-      const names = (l.subs || []).map(p => (p.num ? p.num + " " : "") + surname(p.name)).join("   •   ");
-      subLineArr = wrapLines(c, names, w * 0.9).slice(0, 2);
-    }
-    const subsH = (hasSubs ? (subLabelH + subLineArr.length * (subFs + 8)) : 0) + (hasCoach ? coachH : 0);
-    const footerReserve = (isStory ? 96 : 58) + 26;
-    const bottomGap = isStory ? 30 : 22;
-    const pitchTop = y + (isStory ? 30 : 20);
-    const pitchBottom = h - footerReserve - subsH - (subsH ? bottomGap : 0);
-    const pitchLeft = w * 0.05, pitchW = w * 0.90, pitchH = pitchBottom - pitchTop;
-    drawPitch(c, pitchLeft, pitchTop, pitchW, pitchH, colors);
+  function renderLineup(c, w, h, model) {
+    const l = model.lineup || {}, colors = model.colors, tx = colors.text;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
 
-    const lines = l.lines || [];
-    const rows = lines.length + 1; // + brankář
-    const maxPer = Math.max(1, ...lines.map(a => a.length));
-    const rowGap = pitchH / rows;
-    const inX = pitchLeft + pitchW * 0.06, inW = pitchW * 0.88;
-    let d = Math.min(inW / (maxPer + 0.5), rowGap * 0.60);
-    d = Math.max(58, Math.min(d, isStory ? 150 : 128));
+    const y = drawLineupHeader(c, l, w, model, isStory);
+    const L = computeLineupLayout(c, l, w, h, y, isStory);
+    drawPitch3D(c, L.pitchLeft, L.pitchTop, L.pitchW, L.pitchH, colors, L.topScale);
 
-    // řada 0 = brankář (dole), poslední = útočníci (nahoře)
-    function rowY(r) { return pitchTop + pitchH - (r + 0.5) * rowGap; }
     const photoStyle = l.photoStyle || "cutout";
-    function placeRow(arr, r) {
-      const k = arr.length; if (!k) return;
-      const slotW = inW / (k + 1);
-      for (let i = 0; i < k; i++) { const px = inX + inW * ((i + 1) / (k + 1)); drawPlayerToken(c, arr[i], px, rowY(r), d, colors, slotW, photoStyle); }
-    }
-    placeRow([l.gk], 0);
-    for (let li = 0; li < lines.length; li++) placeRow(lines[li], li + 1);
+    for (const tk of L.toks) drawPlayerToken(c, tk.tok, tk.px, tk.py, tk.d, colors, tk.slotW, photoStyle);
 
     // náhradníci + trenér
-    let sy = pitchBottom + bottomGap;
+    let sy = L.pitchBottom + L.bottomGap;
     c.textAlign = "center"; c.textBaseline = "top";
-    if (hasSubs) {
+    if (L.hasSubs) {
       c.fillStyle = colors.primary; c.font = "800 " + (isStory ? 30 : 26) + "px " + FONT;
-      c.fillText("NÁHRADNÍCI", cx, sy); sy += subLabelH;
-      c.fillStyle = tx; c.font = "600 " + subFs + "px " + FONT;
-      for (const ln of subLineArr) { c.fillText(ln, cx, sy); sy += subFs + 8; }
+      c.fillText("NÁHRADNÍCI", cx, sy); sy += L.subLabelH;
+      c.fillStyle = tx; c.font = "600 " + L.subFs + "px " + FONT;
+      for (const ln of L.subLineArr) { c.fillText(ln, cx, sy); sy += L.subFs + 8; }
     }
-    if (hasCoach) { c.fillStyle = tx; c.globalAlpha = 0.82; c.font = "700 " + (isStory ? 26 : 22) + "px " + FONT; c.fillText("Trenér: " + l.coach.trim(), cx, sy + 2); c.globalAlpha = 1; }
+    if (L.hasCoach) { c.fillStyle = tx; c.globalAlpha = 0.82; c.font = "700 " + (isStory ? 26 : 22) + "px " + FONT; c.fillText("Trenér: " + l.coach.trim(), cx, sy + 2); c.globalAlpha = 1; }
     c.textBaseline = "alphabetic";
 
     drawFooter(c, w, h, model);
@@ -1554,6 +1859,85 @@
     c.textAlign = "left"; c.textBaseline = "alphabetic";
   }
 
+  /* ---------- SESTAVA (animovaná varianta pro video) ---------- */
+  function renderLineupFrame(c, w, h, model, p) {
+    const l = model.lineup || {}, colors = model.colors, tx = colors.text;
+    const cx = w / 2, isStory = (model.format === "story" || model.format === "print");
+
+    drawBackground(c, w, h, colors);
+
+    // hlavička – sjede shora (y potřebné pro layout se vrátí i při alpha 0)
+    let y;
+    {
+      const a = easeOutCubic(seg(p, 0.02, 0.22));
+      c.save(); c.globalAlpha = Math.max(0, a); c.translate(0, (1 - a) * (-24));
+      y = drawLineupHeader(c, l, w, model, isStory);
+      c.restore();
+    }
+
+    const L = computeLineupLayout(c, l, w, h, y, isStory);
+    const photoStyle = l.photoStyle || "cutout";
+
+    // hřiště – fade in
+    {
+      const a = easeOutCubic(seg(p, 0.12, 0.34));
+      if (a > 0) { c.save(); c.globalAlpha = a; drawPitch3D(c, L.pitchLeft, L.pitchTop, L.pitchW, L.pitchH, colors, L.topScale); c.restore(); }
+    }
+
+    // hráči – postupný „pop" zezadu (daleké → blízké)
+    const toks = L.toks, n = toks.length, start = 0.30, end = 0.86, span = end - start;
+    const step = n > 1 ? Math.min(0.05, (span * 0.55) / (n - 1)) : 0;
+    const dur = Math.max(0.14, span - step * (n - 1));
+    for (let i = 0; i < n; i++) {
+      const t0 = start + i * step;
+      const e = easeOutBack(seg(p, t0, t0 + dur));
+      const a = seg(p, t0, t0 + dur * 0.6);
+      if (a <= 0) continue;
+      const tk = toks[i], s = Math.max(0.001, e);
+      c.save(); c.globalAlpha = Math.min(1, a);
+      c.translate(tk.px, tk.py); c.scale(s, s); c.translate(-tk.px, -tk.py);
+      drawPlayerToken(c, tk.tok, tk.px, tk.py, tk.d, colors, tk.slotW, photoStyle);
+      c.restore();
+    }
+
+    // náhradníci + trenér – fade in
+    {
+      const a = easeOutCubic(seg(p, 0.80, 0.96));
+      if (a > 0) {
+        c.save(); c.globalAlpha = a;
+        let sy = L.pitchBottom + L.bottomGap;
+        c.textAlign = "center"; c.textBaseline = "top";
+        if (L.hasSubs) {
+          c.fillStyle = colors.primary; c.font = "800 " + (isStory ? 30 : 26) + "px " + FONT;
+          c.fillText("NÁHRADNÍCI", cx, sy); sy += L.subLabelH;
+          c.fillStyle = tx; c.font = "600 " + L.subFs + "px " + FONT;
+          for (const ln of L.subLineArr) { c.fillText(ln, cx, sy); sy += L.subFs + 8; }
+        }
+        if (L.hasCoach) { c.fillStyle = tx; c.globalAlpha = a * 0.82; c.font = "700 " + (isStory ? 26 : 22) + "px " + FONT; c.fillText("Trenér: " + l.coach.trim(), cx, sy + 2); }
+        c.textBaseline = "alphabetic"; c.restore();
+      }
+    }
+
+    // patička – fade
+    {
+      const a = easeOutCubic(seg(p, 0.90, 1.0));
+      if (a > 0) { c.save(); c.globalAlpha = a; drawFooter(c, w, h, model); c.restore(); }
+    }
+
+    // shine
+    {
+      const sp = seg(p, 0.20, 0.55);
+      if (sp > 0 && sp < 1) {
+        c.save();
+        const bandW = w * 0.45, xpos = -bandW + (w + bandW * 2) * easeInOut(sp);
+        const g = c.createLinearGradient(xpos, 0, xpos + bandW, 0);
+        g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,0.10)"); g.addColorStop(1, "rgba(255,255,255,0)");
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+        c.restore();
+      }
+    }
+  }
+
   function render(c, model) {
     const w = model.canvasW || c.canvas.width, h = model.canvasH || c.canvas.height;
     c.clearRect(0, 0, w, h);
@@ -1573,6 +1957,8 @@
     const w = model.canvasW || c.canvas.width, h = model.canvasH || c.canvas.height;
     c.clearRect(0, 0, w, h);
     if (model.tpl === "invite") { renderInviteFrame(c, w, h, model, p); return; }
+    if (model.tpl === "result") { renderResultFrame(c, w, h, model, p); return; }
+    if (model.tpl === "lineup") { renderLineupFrame(c, w, h, model, p); return; }
     render(c, model);
   }
 
