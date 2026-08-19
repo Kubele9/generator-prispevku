@@ -1134,14 +1134,23 @@
       c.textBaseline = "alphabetic"; return;
     }
 
-    // MEDAILONEK – kolečko jen s obličejem (jednotný vzhled bez ohledu na dres)
+    // MEDAILONEK – kolečko jen s obličejem, nadzvednuté nad trávník + stín na zemi (3D)
     if (style === "medallion" && isReady(tok.photo)) {
+      const lift = d * 0.14;          // nadzvednutí nad trávu
+      const gcy = cy + r * 0.60;      // úroveň „země" pod medailonkem
+      const ccy = cy - lift;          // střed kolečka (výš = plave nad hřištěm)
+      // stín na zemi
       c.save();
-      c.shadowColor = "rgba(0,0,0,0.35)"; c.shadowBlur = d * 0.12; c.shadowOffsetY = 3;
-      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fillStyle = "#ffffff"; c.fill();
+      c.fillStyle = "rgba(0,0,0,0.30)";
+      c.beginPath(); c.ellipse(cx, gcy, r * 0.86, r * 0.26, 0, 0, Math.PI * 2); c.fill();
       c.restore();
-      drawAvatar(c, tok.photo, cx, cy, d, colors, tok.photoY);
-      drawNamePlate(c, tok, cx, cy + r + 7, d, colors, (slotW || d * 1.4) * 0.96);
+      // bílý rámeček kolečka s vrženým stínem
+      c.save();
+      c.shadowColor = "rgba(0,0,0,0.40)"; c.shadowBlur = d * 0.16; c.shadowOffsetY = d * 0.10;
+      c.beginPath(); c.arc(cx, ccy, r, 0, Math.PI * 2); c.fillStyle = "#ffffff"; c.fill();
+      c.restore();
+      drawAvatar(c, tok.photo, cx, ccy, d, colors, tok.photoY);
+      drawNamePlate(c, tok, cx, ccy + r + 7, d, colors, (slotW || d * 1.4) * 0.96);
       return;
     }
 
@@ -1244,21 +1253,22 @@
     const pitchTop = headerEndY + (isStory ? 30 : 20);
     const pitchBottom = h - footerReserve - subsH - (subsH ? bottomGap : 0);
     const pitchLeft = w * 0.05, pitchW = w * 0.90, pitchH = pitchBottom - pitchTop;
-    const topScale = 0.56;
+    const topScale = 0.68;                            // mírnější perspektiva (útočníci nejsou tak daleko)
 
     const lines = l.lines || [];
     const rows = lines.length + 1;
     const cap = pitchH / rows;
+    const tMin = 0.16, tMax = 0.90;                   // řady dovnitř hřiště (dole necháme místo na jmenovku)
     const toks = [];
     function place(arr, r) {
       const k = arr.length; if (!k) return;
       const nr = rows > 1 ? r / (rows - 1) : 0;
-      const t = 0.06 + nr * 0.88;                    // 0 = blízko (dole), 1 = daleko (nahoře)
+      const t = tMin + nr * (tMax - tMin);            // 0 = blízko (dole), 1 = daleko (nahoře)
       const py = (pitchTop + pitchH) - t * pitchH;
       const sw = 1 - t * (1 - topScale);             // měřítko podle hloubky
       const rowW = pitchW * sw;
-      const dBase = Math.min((pitchW * 0.88) / (k + 0.3) * 0.92, cap * 0.72);
-      const d = Math.max(42, Math.min(isStory ? 150 : 128, dBase * sw));
+      const dBase = Math.min((pitchW * 0.88) / (k + 0.3) * 0.92, cap * 0.74);
+      const d = Math.max(46, Math.min(isStory ? 150 : 128, dBase * sw));
       const slotW = rowW * 0.9 / k;
       for (let i = 0; i < k; i++) {
         const px = cx + ((i + 0.5) / k - 0.5) * rowW * 0.9;
