@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-19-62" />
+<meta name="app-version" content="2026-08-25-63" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -1336,9 +1336,28 @@ function currentFileName() {
   return "brumovice-" + name + "-" + suffix + ".png";
 }
 $("downloadBtn").addEventListener("click", () => {
-  const link = document.createElement("a");
-  link.download = currentFileName();
-  link.href = canvas.toDataURL("image/png"); link.click();
+  const name = currentFileName();
+  // velké plátno (A4 tisk) => toDataURL vytvoří příliš dlouhou URL a stažení tiše selže.
+  // Použij Blob + objectURL (bez limitu velikosti); fallback na toDataURL.
+  const save = (href, revoke) => {
+    const link = document.createElement("a");
+    link.download = name; link.href = href;
+    document.body.appendChild(link); link.click(); link.remove();
+    if (revoke) setTimeout(() => URL.revokeObjectURL(href), 4000);
+  };
+  try {
+    canvas.toBlob(blob => {
+      if (!blob) {
+        try { save(canvas.toDataURL("image/png")); }
+        catch (e) { alert("Nepodařilo se vytvořit obrázek ke stažení (možná je v šabloně obrázek z cizí domény). Zkus logo/foto nahrát ze souboru."); }
+        return;
+      }
+      save(URL.createObjectURL(blob), true);
+    }, "image/png");
+  } catch (e) {
+    try { save(canvas.toDataURL("image/png")); }
+    catch (e2) { alert("Stažení se nepovedlo: " + (e2 && e2.message ? e2.message : e2)); }
+  }
 });
 
 // Sdílení přes systémovou nabídku (mobil): uživatel vybere FB/Instagram → Feed/Stories
