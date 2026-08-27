@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-27-64" />
+<meta name="app-version" content="2026-08-27-65" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -771,7 +771,7 @@ function currentOpponentName() {
   return home.toLowerCase().includes("brumovice") ? away : home;
 }
 function setCurrentOpponentName(name) {
-  if (state.tpl === "invite") { setVal("i_opp", name); return; }
+  if (state.tpl === "invite") { setVal("i_opp", name); autoVenue(); return; }
   const home = val("r_home");
   if (home.toLowerCase().includes("brumovice")) setVal("r_away", name);
   else setVal("r_home", name);
