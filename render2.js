@@ -720,8 +720,8 @@
 
     // jména NAD znaky
     const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-    drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
-    drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
+    drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+    drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
 
     drawVsBadge(c, cx, rowY, Rc, isStory);
 
@@ -819,8 +819,8 @@
       if (e > 0) {
         c.save(); c.globalAlpha = e; c.translate(0, dy);
         const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-        drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
-        drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
+        drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+        drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
         c.restore();
       }
     }
