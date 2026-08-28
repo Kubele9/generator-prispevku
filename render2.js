@@ -1468,7 +1468,26 @@
       for (const s of grouped) addSec(0, s);
     } else {
       const leftKeys = { gk: 1, def: 1, other: 1 };
-      for (const s of grouped) addSec(leftKeys[s.key] ? 0 : 1, s);
+      const hasRight = grouped.some(s => !leftKeys[s.key]); // existují záložníci/útočníci?
+      if (hasRight) {
+        // klasické rozdělení podle postů (brankáři+obránci vlevo, záloha+útok vpravo)
+        for (const s of grouped) addSec(leftKeys[s.key] ? 0 : 1, s);
+      } else {
+        // posty nevyplněné → rozděl hráče rovnoměrně do 2 sloupců (velkou sekci rozpůlíme)
+        const flat = [];
+        for (const s of grouped) for (const p of s.players) flat.push({ sec: s, p: p });
+        const half = Math.ceil(flat.length / 2);
+        const buildCol = items => {
+          const out = []; let cur = null;
+          for (const it of items) {
+            if (!cur || cur.key !== it.sec.key) { cur = { key: it.sec.key, title: it.sec.title, players: [] }; out.push(cur); }
+            cur.players.push(it.p);
+          }
+          return out;
+        };
+        buildCol(flat.slice(0, half)).forEach(s => addSec(0, s));
+        buildCol(flat.slice(half)).forEach(s => addSec(1, s));
+      }
     }
     const maxUnits = Math.max(1, ...cols.map(o => o.units));
     let rowH = availH / maxUnits;
