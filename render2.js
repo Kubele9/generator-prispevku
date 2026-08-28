@@ -1473,10 +1473,9 @@
         // klasické rozdělení podle postů (brankáři+obránci vlevo, záloha+útok vpravo)
         for (const s of grouped) addSec(leftKeys[s.key] ? 0 : 1, s);
       } else {
-        // posty nevyplněné → rozděl hráče rovnoměrně do 2 sloupců (velkou sekci rozpůlíme)
+        // posty nevyplněné → rozděl hráče do 2 sloupců tak, aby měly stejnou VÝŠKU
         const flat = [];
         for (const s of grouped) for (const p of s.players) flat.push({ sec: s, p: p });
-        const half = Math.ceil(flat.length / 2);
         const buildCol = items => {
           const out = []; let cur = null;
           for (const it of items) {
@@ -1485,8 +1484,15 @@
           }
           return out;
         };
-        buildCol(flat.slice(0, half)).forEach(s => addSec(0, s));
-        buildCol(flat.slice(half)).forEach(s => addSec(1, s));
+        // výška sloupce v "unitech" (nadpis 0.9+0.18, mezera 0.4 mezi sekcemi, hráč = 1)
+        const unitsOf = secs => secs.reduce((u, s) => u + 0.9 + 0.18 + s.players.length, 0) + 0.4 * Math.max(0, secs.length - 1);
+        let bestK = Math.ceil(flat.length / 2), bestDiff = Infinity;
+        for (let k = 1; k < flat.length; k++) {
+          const d = Math.abs(unitsOf(buildCol(flat.slice(0, k))) - unitsOf(buildCol(flat.slice(k))));
+          if (d < bestDiff) { bestDiff = d; bestK = k; }
+        }
+        buildCol(flat.slice(0, bestK)).forEach(s => addSec(0, s));
+        buildCol(flat.slice(bestK)).forEach(s => addSec(1, s));
       }
     }
     const maxUnits = Math.max(1, ...cols.map(o => o.units));
