@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-28-67" />
+<meta name="app-version" content="2026-08-28-68" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -673,7 +673,7 @@ function migratePlayerYear(p) {
   return p;
 }
 function buildRosterPoster() {
-  const players = curRoster().slice().map(p => ({
+  const players = curRoster().slice().filter(p => p.inRoster !== false).map(p => ({
     name: p.name, num: p.num, birthYear: p.birthYear || "", pos: p.pos || "", photo: getImg(p.photo), photoY: p.photoY || 0,
   }));
   const staff = curStaff().slice().map(s => ({ name: s.name, role: s.role || "" }));
@@ -1032,6 +1032,11 @@ function renderRoster() {
     up.addEventListener("click", () => moveRosterPlayer(idx, -1));
     down.addEventListener("click", () => moveRosterPlayer(idx, 1));
     mv.append(up, down);
+    const inc = document.createElement("input"); inc.type = "checkbox"; inc.className = "lu-inc"; inc.checked = p.inRoster !== false;
+    inc.title = "Zobrazit v kádru sezóny (odškrtni = do plakátu se nepropíše)";
+    inc.style.cssText = "width:18px;height:18px;flex:0 0 auto;cursor:pointer";
+    const applyDim = () => { row.style.opacity = inc.checked ? "" : "0.45"; };
+    inc.addEventListener("change", () => { p.inRoster = inc.checked; applyDim(); saveLineup(); render(); });
     const img = document.createElement("canvas"); img.className = "lu-thumb"; img.title = "Klikni pro nahrání/změnu fotky";
     const drawThumb = () => {
       const dpr = window.devicePixelRatio || 1, S = 44;
@@ -1068,7 +1073,8 @@ function renderRoster() {
       lu.subs = (lu.subs || []).filter(id => id !== p.id);
       saveLineup(); renderRoster(); renderLineupSlots(); renderSubs(); refreshRosterPosterUI(); render();
     });
-    row.append(mv, img, fy, file, num, pos, year, name, del);
+    row.append(mv, inc, img, fy, file, num, pos, year, name, del);
+    applyDim();
     box.appendChild(row);
   });
 }
@@ -1176,7 +1182,7 @@ $("lu_photostyle").addEventListener("change", () => { curLineup().photoStyle = $
 ["rd_title", "rd_season"].forEach(id => { const el = $(id); if (el) el.addEventListener("input", () => { saveLineup(); render(); }); });
 $("lu_export").addEventListener("click", () => {
   const data = { app: "brumovice-generator", type: "roster", team: state.team,
-    players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo, birthYear: p.birthYear || "", pos: p.pos || "", photoY: p.photoY || 0 })),
+    players: curRoster().map(p => ({ num: p.num, name: p.name, photo: p.photo, birthYear: p.birthYear || "", pos: p.pos || "", photoY: p.photoY || 0, inRoster: p.inRoster !== false })),
     staff: curStaff().map(s => ({ name: s.name, role: s.role || "" })),
   };
   if (!data.players.length) { alert("Kádr je prázdný – není co zálohovat."); return; }
@@ -1219,7 +1225,7 @@ $("lu_import").addEventListener("change", e => {
       if (curRoster().length) replace = confirm("Nahradit stávající kádr novým ze souboru?\n\nOK = nahradit, Zrušit = přidat ke stávajícím.");
       const mapped = players.map(p => {
         const m = migratePlayerYear({ num: (p.num || "").toString(), name: p.name || "", photo: p.photo || null, birthYear: (p.birthYear || p.age || "").toString(), pos: p.pos || "" });
-        return { id: newId(), num: m.num, name: m.name, photo: m.photo, birthYear: m.birthYear || "", pos: m.pos, photoY: Number(p.photoY) || 0 };
+        return { id: newId(), num: m.num, name: m.name, photo: m.photo, birthYear: m.birthYear || "", pos: m.pos, photoY: Number(p.photoY) || 0, inRoster: p.inRoster !== false };
       });
       const staff = (d.staff || []).filter(s => s && s.name).map(s => ({ id: newId(), name: s.name || "", role: s.role || "" }));
       if (replace) {
