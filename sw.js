@@ -1,6 +1,6 @@
 /* Service worker – offline režim pro generátor příspěvků.
    Strategie: nejdřív síť (ať máš vždy aktuální verzi), při výpadku sáhne do cache. */
-const CACHE = "brumovice-generator-v79";
+const CACHE = "brumovice-generator-v80";
 
 self.addEventListener("message", (e) => { if (e.data === "skipWaiting") self.skipWaiting(); });
 const ASSETS = [

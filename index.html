@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="app-version" content="2026-08-28-68" />
+<meta name="app-version" content="2026-08-29-69" />
 <title>Generátor příspěvků – Sokol Brumovice</title>
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#0fb5ac" />
@@ -255,6 +255,10 @@
       <div class="field">
         <label>Základní sestava (vyber z kádru)</label>
         <div id="lu_slots"></div>
+      </div>
+      <div class="field">
+        <label class="file-btn" style="cursor:pointer; display:inline-block">⬆ Načíst sestavu ze souboru<input type="file" id="lu_lineup_import" accept="application/json,.json" hidden /></label>
+        <div class="mini">Naplní základní 11 i náhradníky podle souboru (páruje hráče podle jména z kádru). Hraj na správném týmu.</div>
       </div>
       <div class="field">
         <label>Náhradníci</label>
@@ -1237,6 +1241,38 @@ $("lu_import").addEventListener("change", e => {
       } else { curRoster().push.apply(curRoster(), mapped); if (staff.length) curStaff().push.apply(curStaff(), staff); }
       saveLineup(); refreshLineupUI(); render();
       alert("Načteno hráčů: " + mapped.length + (staff.length ? ", realizační tým: " + staff.length : "") + ". Základní sestava se předvyplnila – uprav si ji podle potřeby.");
+    } catch (err) { alert("Soubor se nepovedlo načíst: " + err.message); }
+    finally { e.target.value = ""; }
+  };
+  rd.readAsText(f);
+});
+
+$("lu_lineup_import").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const d = JSON.parse(rd.result);
+      const norm = s => (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter(Boolean).sort().join(" ");
+      if (d.team && d.team !== state.team) {
+        if (!confirm("Soubor je pro tým \"" + d.team + "\", ale máš vybraný \"" + state.team + "\".\nOK = načíst i tak (do aktuálního týmu), Zrušit = přeruším.")) { e.target.value = ""; return; }
+      }
+      const byName = {}; curRoster().forEach(p => { if (p.name) byName[norm(p.name)] = p.id; });
+      const findId = nm => byName[norm(nm)] || "";
+      const lu = curLineup();
+      if (d.formation && FORMATIONS[d.formation]) lu.formation = d.formation;
+      const st = (d.starters || []).map(findId); st.length = 11;
+      for (let i = 0; i < 11; i++) if (!st[i]) st[i] = "";
+      lu.starters = st;
+      lu.subs = (d.subs || []).map(findId).filter(Boolean);
+      if (d.opponent != null) setVal("lu_opp", d.opponent);
+      if (d.date != null) setVal("lu_date", d.date);
+      if (d.time != null) setVal("lu_time", d.time);
+      if (d.comp != null) setVal("lu_comp", d.comp);
+      if (d.coach != null) setVal("lu_coach", d.coach);
+      const missing = (d.starters || []).concat(d.subs || []).filter(nm => !findId(nm));
+      saveLineup(); refreshLineupUI(); render();
+      alert("Sestava načtena – základní 11 i náhradníci nastaveni." + (missing.length ? "\n\nBez shody v kádru (uprav ručně): " + missing.join(", ") : ""));
     } catch (err) { alert("Soubor se nepovedlo načíst: " + err.message); }
     finally { e.target.value = ""; }
   };
