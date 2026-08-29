@@ -418,10 +418,10 @@
     drawCrest(c, homeIsBrum ? model.logo : model.oppLogo, r.home, colHome, rowY, logoSize, colors);
     drawCrest(c, homeIsBrum ? model.oppLogo : model.logo, r.away, colAway, rowY, logoSize, colors);
 
-    // jména týmů NAD znaky (ať se dole neperou s výsledkem)
+    // jména týmů NAD znaky (ať se dole neperou s výsledkem) – vždy bíle (i na světlém logu soupeře)
     const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-    drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
-    drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
+    drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+    drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
 
     // skóre (zaoblený obdélník)
     drawScoreBadge(c, cx, rowY, Rc, r.hs, r.as, r.half, isStory);
@@ -531,8 +531,8 @@
       if (e > 0) {
         c.save(); c.globalAlpha = e; c.translate(0, dy);
         const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-        drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, leftTxt, isStory, true);
-        drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, rightTxt, isStory, true);
+        drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+        drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
         c.restore();
       }
     }
