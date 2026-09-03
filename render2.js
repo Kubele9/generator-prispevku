@@ -111,11 +111,36 @@
     return { b, dispW, dispH };
   }
 
+  // ořízne průhledné okraje loga (aby znak vyplnil rám a nepůsobil „neořezaně")
+  const trimCache = {};
+  function trimBox(img) {
+    const key = (img && img.src) || String(img);
+    if (key in trimCache) return trimCache[key];
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    if (!iw || !ih) return null;
+    const s = 84;
+    const cv = document.createElement("canvas"); cv.width = s; cv.height = s;
+    const cc = cv.getContext("2d"); cc.clearRect(0, 0, s, s); cc.drawImage(img, 0, 0, s, s);
+    let data; try { data = cc.getImageData(0, 0, s, s).data; } catch (e) { trimCache[key] = null; return null; }
+    let minX = s, minY = s, maxX = -1, maxY = -1;
+    for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
+      if (data[(y * s + x) * 4 + 3] > 16) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+    }
+    let box = null;
+    if (maxX >= 0) {
+      const covers = (minX <= 1 && minY <= 1 && maxX >= s - 2 && maxY >= s - 2); // bez průhledných okrajů → netrimuj
+      if (!covers) box = { sx: (minX / s) * iw, sy: (minY / s) * ih, sw: ((maxX - minX + 1) / s) * iw, sh: ((maxY - minY + 1) / s) * ih };
+    }
+    trimCache[key] = box; return box;
+  }
   function drawImageContain(c, img, cx, cy, size) {
-    const ratio = img.naturalWidth / img.naturalHeight;
+    const box = trimBox(img);
+    const sx = box ? box.sx : 0, sy = box ? box.sy : 0;
+    const sw = box ? box.sw : img.naturalWidth, sh = box ? box.sh : img.naturalHeight;
+    const ratio = sw / sh;
     let w = size, h = size;
     if (ratio > 1) h = size / ratio; else w = size * ratio;
-    c.drawImage(img, cx - w / 2, cy - h / 2, w, h);
+    c.drawImage(img, sx, sy, sw, sh, cx - w / 2, cy - h / 2, w, h);
   }
   function drawCrest(c, img, name, cx, cy, size, colors) {
     if (isReady(img)) { drawImageContain(c, img, cx, cy, size); return; }
@@ -259,16 +284,23 @@
     c.lineCap = "butt";
   }
 
-  function drawTeamNameCol(c, name, cx, y, maxW, color, isStory, anchorBottom) {
+  function drawTeamNameCol(c, name, cx, y, maxW, color, isStory, anchorBottom, clampW) {
     name = (name || "").toUpperCase();
     const size = fitFont(c, name, maxW, isStory ? 42 : 38, "800", 20);
     c.font = "800 " + size + "px " + FONT;
     const lines = wrapLines(c, name, maxW);
+    // neopírat jméno o okraj plátna – když by text přetékal, posuň střed dovnitř
+    let drawCx = cx;
+    if (clampW) {
+      let lw = 0; for (const ln of lines) lw = Math.max(lw, c.measureText(ln).width);
+      const margin = clampW * 0.04, half = lw / 2;
+      drawCx = (half >= clampW / 2 - margin) ? clampW / 2 : Math.max(margin + half, Math.min(clampW - margin - half, cx));
+    }
     // anchorBottom: y je účaří POSLEDNÍho řádku (blok roste nahoru) – vhodné nad znak
     let startY = anchorBottom ? (y - (lines.length - 1) * (size + 4)) : y;
     c.fillStyle = color; c.textAlign = "center"; c.textBaseline = "alphabetic";
     c.save(); c.shadowColor = "rgba(0,0,0,0.30)"; c.shadowBlur = 8;
-    let yy = startY; for (const ln of lines) { c.fillText(ln, cx, yy); yy += size + 4; }
+    let yy = startY; for (const ln of lines) { c.fillText(ln, drawCx, yy); yy += size + 4; }
     c.restore();
   }
 
@@ -420,8 +452,8 @@
 
     // jména týmů NAD znaky (ať se dole neperou s výsledkem) – vždy bíle (i na světlém logu soupeře)
     const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-    drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
-    drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+    drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
+    drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
 
     // skóre (zaoblený obdélník)
     drawScoreBadge(c, cx, rowY, Rc, r.hs, r.as, r.half, isStory);
@@ -531,8 +563,8 @@
       if (e > 0) {
         c.save(); c.globalAlpha = e; c.translate(0, dy);
         const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-        drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
-        drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+        drawTeamNameCol(c, r.home, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
+        drawTeamNameCol(c, r.away, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
         c.restore();
       }
     }
@@ -720,8 +752,8 @@
 
     // jména NAD znaky
     const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-    drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
-    drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+    drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
+    drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
 
     drawVsBadge(c, cx, rowY, Rc, isStory);
 
@@ -819,8 +851,8 @@
       if (e > 0) {
         c.save(); c.globalAlpha = e; c.translate(0, dy);
         const namesBottomY = rowY - logoSize / 2 - (isStory ? 64 : 56);
-        drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true);
-        drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true);
+        drawTeamNameCol(c, leftName, colHome, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
+        drawTeamNameCol(c, rightName, colAway, namesBottomY, w * 0.40, "#ffffff", isStory, true, w);
         c.restore();
       }
     }
